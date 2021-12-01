@@ -17,7 +17,7 @@ Created on Wed Sep 29 12:15:38 2021
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import TensorDataset, DataLoader, SequentialSampler
 from transformers import BertModel
 from transformers import BertTokenizer
 from common_classes import BertClassifier
@@ -25,19 +25,12 @@ from common_classes import text_preprocessing
 from common_classes import preprocessing_for_bert
 from numpy import argmax
 from common_classes import get_class
+from common_classes import bert_predict
 import csv
 import torch.nn as nn
 import logging
 
 
-if torch.cuda.is_available():       
-    device = torch.device("cuda")
-    print(f'There are {torch.cuda.device_count()} GPU(s) available.')
-    print('Device name:', torch.cuda.get_device_name(0))
-
-else:
-    print('No GPU available, using the CPU instead.')
-    device = torch.device("cpu")
  
 # modify the model path to load the model    
 model=torch.load('/Users/olesyar/Documents/data/bert_trials')
@@ -84,56 +77,20 @@ def create_predictions(df):
 # =============================================================================
 
 if __name__ == '__main__':
-    LARGE_FILE = "/Users/olesyar/Documents/data/studies.txt"
-    reader = pd.read_csv(LARGE_FILE, skiprows=1, names=names_studies, delimiter='|')
-    # reader2 = pd.read_csv(LARGE_FILE2, skiprows=1, names=names_all, delimiter='\t')
-
-    # print(len(reader))
-    # # print(len(reader2))
-    reader=(reader[['why_stopped','phase','nct_id', 'start_date']]).drop_duplicates()
-    # reader2=(reader2[['why_stopped','phase','nct_id', 'start_date']]).drop_duplicates()
-    print(len(reader))
-    # print(len(reader2))
-    probs = BertClassifier(model, create_predictions(reader))
+    studies_file = "/Users/olesyar/Documents/data/studies.txt"
+    reader = pd.read_csv(studies_file, skiprows=1, names=names_studies, delimiter='|')
+    reader=(reader[['why_stopped','phase','nct_id', 'start_date', 'overall_status', 'last_update_posted_date', 'completion_date']]).drop_duplicates()
+    probs = bert_predict(model, create_predictions(reader))
     csv_file1=open('/Users/olesyar/Documents/data/stopped_predictions2.tsv', "w")
     writer1 = csv.writer(csv_file1, delimiter='\t', lineterminator='\n')
     i=0
-    not_stopped=reader[reader["why_stopped"].notnull()]
+    not_stopped=reader[reader["why_stopped"].notnull()]    
     for ind,dat in not_stopped.iterrows():
-        writer1.writerow([dat['why_stopped'].replace('\r~', ''),dat['phase'],dat['nct_id'],dat['start_date'],get_class(argmax(probs[i]))])
+        writer1.writerow([dat['why_stopped'].replace('\r~', ''),dat['phase'],dat['nct_id'],dat['start_date'], dat['overall_status'],dat['last_update_posted_date'],dat['completion_date'],get_class(argmax(probs[i]))])
         i=i+1
     csv_file2=open('/Users/olesyar/Documents/data/notstopped_predictions2.tsv', "w")
     writer2 = csv.writer(csv_file2, delimiter='\t')
     i=0
     stopped=reader[reader["why_stopped"].isnull()]
     for ind,dat in stopped.iterrows():
-        writer2.writerow([dat['why_stopped'],dat['phase'],dat['nct_id'],dat['start_date'],''])
-    
-    
-    
-    
-    
-    
-    
-# probs = bert_predict(model, create_predictions('/Users/olesyar/Documents/data/studies.tsv'))
-# preds=[]
-# for pred in probs:
-#     print(get_class(argmax(pred)))
-# newData = pd.read_csv("/Users/olesyar/Documents/data/studies2.tsv",  skiprows=2,
-#                           names=names_all, delimiter='\t')
-# csv_file=open('/Users/olesyar/Documents/data/stopped_predictions.tsv', "w")
-# writer = csv.writer(csv_file, delimiter='\t')
-
-# newData=newData.drop_duplicates(subset='nct_id', keep="first")
-# print('Tokenizing data...')
-# test_inputs, test_masks = preprocessing_for_bert(newData["why_stopped"])
-# test_dataset = TensorDataset(test_inputs, test_masks)
-# test_sampler = SequentialSampler(test_dataset)
-# test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=32)
-# probs = bert_predict(model, test_dataloader)
-# for data in probs:
-#     print(get_class(argmax(data)))
-# print(probs)
-
-
-
+        writer2.writerow([dat['why_stopped'],dat['phase'],dat['nct_id'],dat['start_date'],dat['overall_status'],dat['last_update_posted_date'],dat['completion_date'],''])
