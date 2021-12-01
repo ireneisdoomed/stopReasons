@@ -10,8 +10,19 @@ from transformers import BertModel
 import re
 from transformers import BertTokenizer
 import torch
+import torch.nn.functional as F
 
 
+
+
+
+if torch.cuda.is_available():       
+    device = torch.device("cuda")
+    print(f'There are {torch.cuda.device_count()} GPU(s) available.')
+    print('Device name:', torch.cuda.get_device_name(0))
+else:
+    print('No GPU available, using the CPU instead.')
+    device = torch.device("cpu")
 
 # Create the BertClassfier class
 class BertClassifier(nn.Module):
@@ -125,6 +136,62 @@ def preprocessing_for_bert(data):
     input_ids = torch.tensor(input_ids)
     attention_masks = torch.tensor(attention_masks)
     return input_ids, attention_masks
+
+
+
+
+def bert_predict(model, test_dataloader):
+    """Perform a forward pass on the trained BERT model to predict probabilities
+    """
+    # Put the model into the evaluation mode. The dropout layers are disabled during
+    # the test time.
+    model.eval()
+
+    all_logits = []
+
+    # For each batch in our test set...
+    for batch in test_dataloader:
+        # Load batch to GPU
+        b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
+
+        # Compute logits
+        with torch.no_grad():
+            logits = model(b_input_ids, b_attn_mask)
+        all_logits.append(logits)
+    
+    # Concatenate logits from each batch
+    all_logits = torch.cat(all_logits, dim=0)
+
+    # Apply softmax to calculate probabilities
+    probs = F.softmax(all_logits, dim=1).cpu().numpy()
+
+    return probs
+
+
+        
+    def forward(self, input_ids, attention_mask):
+        """
+        Feed input to BERT and the classifier to compute logits.
+        @param    input_ids (torch.Tensor): an input tensor with shape (batch_size,
+                      max_length)
+        @param    attention_mask (torch.Tensor): a tensor that hold attention mask
+                      information with shape (batch_size, max_length)
+        @return   logits (torch.Tensor): an output tensor with shape (batch_size,
+                      num_labels)
+        """
+        # Feed input to BERT
+        outputs = self.bert(input_ids=input_ids,
+                            attention_mask=attention_mask)
+        
+        # Extract the last hidden state of the token `[CLS]` for classification task
+        last_hidden_state_cls = outputs[0][:, 0, :]
+
+        # Feed input to classifier to compute logits
+        logits = self.classifier(last_hidden_state_cls)
+
+        return logits
+
+
 
 
 def get_class(code):
