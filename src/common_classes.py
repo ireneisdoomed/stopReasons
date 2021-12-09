@@ -140,17 +140,18 @@ def preprocessing_for_bert(data):
 
 
 
-def bert_predict(model, test_dataloader):
+def bert_predict(model, dataloader):
     """Perform a forward pass on the trained BERT model to predict probabilities
     """
     # Put the model into the evaluation mode. The dropout layers are disabled during
-    # the test time.
+    # the test time. The predictions also do not need these functions. 
+    # This is to make the processing quicker
     model.eval()
 
     all_logits = []
 
     # For each batch in our test set...
-    for batch in test_dataloader:
+    for batch in dataloader:
         # Load batch to GPU
         b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
 
@@ -162,39 +163,21 @@ def bert_predict(model, test_dataloader):
     # Concatenate logits from each batch
     all_logits = torch.cat(all_logits, dim=0)
 
-    # Apply softmax to calculate probabilities
+    # Apply softmax to calculate probabilities. For more than one class classification, 
+    # sigmoid should be normally applied. The tests showed that for this task, sigmoid
+    # reduces the accuracy quite substantially, while softmax produces more accurate results
     probs = F.softmax(all_logits, dim=1).cpu().numpy()
 
     return probs
 
 
-        
-    def forward(self, input_ids, attention_mask):
-        """
-        Feed input to BERT and the classifier to compute logits.
-        @param    input_ids (torch.Tensor): an input tensor with shape (batch_size,
-                      max_length)
-        @param    attention_mask (torch.Tensor): a tensor that hold attention mask
-                      information with shape (batch_size, max_length)
-        @return   logits (torch.Tensor): an output tensor with shape (batch_size,
-                      num_labels)
-        """
-        # Feed input to BERT
-        outputs = self.bert(input_ids=input_ids,
-                            attention_mask=attention_mask)
-        
-        # Extract the last hidden state of the token `[CLS]` for classification task
-        last_hidden_state_cls = outputs[0][:, 0, :]
-
-        # Feed input to classifier to compute logits
-        logits = self.classifier(last_hidden_state_cls)
-
-        return logits
-
-
 
 
 def get_class(code):
+    """
+    @param: the position of the class with the maximum probability.
+    Return the mapped class name
+    """
     class_dict = {
         'Business_Administrative':0, 
         'Another_Study':1, 
@@ -218,3 +201,31 @@ def get_class(code):
     val_list = list(class_dict.values())
     position = val_list.index(code)
     return(key_list[position])
+
+
+
+def class_map(name):
+    """
+    @param: the name of the predicted class.
+    Return the mapped parent class: Neutral, Negative, Positive, Success, Invalid Reason, or Safety and Side Effects
+    """
+    main_reasons_dict = {
+        'Business_Administrative':"Possibly_Negative", 
+        'Another_Study':"Neutral", 
+        'Negative':"Negative",
+        'Study_Design':"Neutral",
+        'Invalid_Reason':"Invalid_Reason",
+        'Ethical_Reason':"Neutral", 
+        'Insufficient_Data':"Neutral",
+        'Insufficient_Enrollment':"Neutral", 
+        'Study_Staff_Moved':"Neutral", 
+        'Endpoint_Met':"Neutral",
+        'Regulatory':"Neutral", 
+        'Logistics_Resources':"Neutral",
+        'Safety_Sideeffects':"Safety_Sideeffects", 
+        'No_Context':"Invalid_Reason", 
+        'Success':"Success",
+        'Interim_Analysis':"Neutral", 
+        'Covid19':"Neutral"
+        }
+    return(main_reasons_dict[name])
