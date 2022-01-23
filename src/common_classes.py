@@ -7,13 +7,9 @@ Created on Tue Nov 23 08:30:21 2021
 """
 import torch.nn as nn
 from transformers import BertModel
-import re
 from transformers import BertTokenizer
 import torch
 import torch.nn.functional as F
-
-
-
 
 
 if torch.cuda.is_available():       
@@ -76,33 +72,19 @@ class BertClassifier(nn.Module):
 
         return logits
     
-    
 def text_preprocessing(text):
     """
-    - Remove entity mentions (eg. '@united')
-    - Correct errors (eg. '&amp;' to '&')
     @param    text (str): a string to be processed.
     @return   text (Str): the processed string.
     """
-    # Remove '@name'
-    text = re.sub(r'(@.*?)[\s]', ' ', text)
-
-    # Replace '&amp;' with '&'
-    text = re.sub(r'&amp;', '&', text)
-
-    # Remove trailing whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
-
-    return text
-
-
+    return text.strip()
 
 # Create a function to BERT tokenize a set of texts
-def preprocessing_for_bert(data):
+def preprocessing_for_bert(text: str):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
     MAX_LEN=64
     """Perform required preprocessing steps for pretrained BERT.
-    @param    data (np.array): Array of texts to be processed.
+    @param    text (np.array): Array of texts to be processed.
     @return   input_ids (torch.Tensor): Tensor of token ids to be fed to a model.
     @return   attention_masks (torch.Tensor): Tensor of indices specifying which
                   tokens should be attended to by the model.
@@ -111,7 +93,7 @@ def preprocessing_for_bert(data):
     input_ids = []
     attention_masks = []
     # For every sentence...
-    for sent in data:
+    for sent in text:
         # `encode_plus` will:
         #    (1) Tokenize the sentence
         #    (2) Add the `[CLS]` and `[SEP]` token to the start and end
@@ -136,9 +118,6 @@ def preprocessing_for_bert(data):
     input_ids = torch.tensor(input_ids)
     attention_masks = torch.tensor(attention_masks)
     return input_ids, attention_masks
-
-
-
 
 def bert_predict(model, dataloader):
     """Perform a forward pass on the trained BERT model to predict probabilities
@@ -170,9 +149,6 @@ def bert_predict(model, dataloader):
 
     return probs
 
-
-
-
 def get_class(code):
     """
     @param: the position of the class with the maximum probability.
@@ -201,8 +177,6 @@ def get_class(code):
     val_list = list(class_dict.values())
     position = val_list.index(code)
     return(key_list[position])
-
-
 
 def class_map(name):
     """
