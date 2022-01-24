@@ -28,8 +28,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.common_classes import (BertClassifier, bert_predict, class_map,
-                                get_class, preprocessing_for_bert)
+from src.common_classes import BertClassifier, bert_predict, class_map, get_class, preprocessing_for_bert
 
 studies_column_names = [
     'nct_id',
@@ -100,14 +99,17 @@ studies_column_names = [
 
 
 def prepare_data(df: pd.DataFrame) -> DataLoader:
-    # Display 5 samples from the data
-    print('The data set is loaded')
+    """
+    Creates the embeddings for the reasons to stop and loads vectors to DataLoader.
+    """
+
     # Run `preprocessing_for_bert` on the data set
     data_inputs, data_masks = preprocessing_for_bert(df[df["why_stopped"].notnull()].why_stopped)
+
     # Create the DataLoader for our prediction set
     dataset = TensorDataset(data_inputs, data_masks)
     dataloader = DataLoader(dataset, batch_size=32, num_workers=5)
-    print('The data set is ready')
+
     return dataloader
 
 
@@ -147,12 +149,17 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
     """
 
     # initialize logging
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
 
     # load model
     model = torch.load(model_path)
+    logging.info(f"{model_path} is ready to be used.")
 
-    # load the imput file studies.tsv, and extract the columns needed
+    # load the input file studies.tsv, and extract the columns needed
     studies_file = input_file
     reader = pd.read_csv(studies_file, sep='\t').sample(frac=0.01)
     reader = reader[reader['why_stopped'].notna()]
@@ -160,13 +167,15 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
 
     # generate probabilities
     model_data_loader = prepare_data(reader)
+    logging.info('Embeddings generated from input. \n Data is ready to be used. Making predictions...')
     probs = bert_predict(model, model_data_loader)
+    logging.info(f'Predictions are ready. Writing to {output_file}...')
 
     # export predictions
-    csv_file1 = open(output_file, "w")
+    csv_file1 = open(output_file, 'w')
     writer1 = csv.writer(csv_file1, delimiter='\t', lineterminator='\n')
     i = 0
-    stopped = reader[reader["why_stopped"].notnull()]
+    stopped = reader[reader['why_stopped'].notnull()]
     for ind, row in stopped.iterrows():
         # get all the classes that have a probability more than a threshold of 0.01 and order them based on the likelihood
         # from bigger to smaller
@@ -180,6 +189,7 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
             subclasses_all.append(get_class(class_index))
             superclasses_all.append(class_map(get_class(class_index)))
         writer1.writerow([row['why_stopped'].replace('\r~', ''), subclasses_all, superclasses_all])
+    logging.info(f'Predictions saved to {output_file}. Exiting.')
 
 
 if __name__ == '__main__':
