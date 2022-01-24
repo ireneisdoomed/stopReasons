@@ -27,10 +27,8 @@ import sys
 
 import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from numpy import argmax
-from torch.utils.data import DataLoader, SequentialSampler, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 from transformers import BertModel, BertTokenizer
 
 from src.common_classes import (BertClassifier, bert_predict, class_map,
@@ -146,13 +144,10 @@ def get_parser():
     return parser
 
 
-# =============================================================================
-# make predictions
-# =============================================================================
-
-
 def main(input_file, model_path: str, output_file: str) -> None:
-    # modify the model path to load the model
+    """Module to apply a NLP model to categorise the reason why a clinical trial has stopped early."""
+
+    # load model
     model = torch.load(model_path)
 
     # load the imput file studies.tsv, and extract the columns needed
