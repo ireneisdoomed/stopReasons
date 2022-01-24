@@ -10,6 +10,7 @@ from transformers import BertModel
 from transformers import BertTokenizer
 import torch
 import torch.nn.functional as F
+from typing import Tuple
 
 
 if torch.cuda.is_available():       
@@ -22,7 +23,8 @@ else:
 
 # Create the BertClassfier class
 class BertClassifier(nn.Module):
-    """Bert Model for Classification Tasks.
+    """
+    Bert Model for Classification Tasks.
     """
     def __init__(self, freeze_bert=False):
         """
@@ -50,7 +52,7 @@ class BertClassifier(nn.Module):
             for param in self.bert.parameters():
                 param.requires_grad = False
         
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
         """
         Feed input to BERT and the classifier to compute logits.
         @param    input_ids (torch.Tensor): an input tensor with shape (batch_size,
@@ -72,7 +74,7 @@ class BertClassifier(nn.Module):
 
         return logits
     
-def text_preprocessing(text):
+def text_preprocessing(text: str) -> str:
     """
     @param    text (str): a string to be processed.
     @return   text (Str): the processed string.
@@ -80,15 +82,17 @@ def text_preprocessing(text):
     return text.strip()
 
 # Create a function to BERT tokenize a set of texts
-def preprocessing_for_bert(text: str):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-    MAX_LEN=64
+def preprocessing_for_bert(text: str) -> Tuple[torch.Tensor, torch.Tensor]:
     """Perform required preprocessing steps for pretrained BERT.
     @param    text (np.array): Array of texts to be processed.
     @return   input_ids (torch.Tensor): Tensor of token ids to be fed to a model.
     @return   attention_masks (torch.Tensor): Tensor of indices specifying which
                   tokens should be attended to by the model.
     """
+
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+    MAX_LEN=64
+
     # Create empty lists to store outputs
     input_ids = []
     attention_masks = []
@@ -106,7 +110,7 @@ def preprocessing_for_bert(text: str):
             add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
             max_length=MAX_LEN,                  # Max length to truncate/pad
             pad_to_max_length=True,         # Pad sentence to max length
-            #return_tensors='pt',           # Return PyTorch tensor
+            # return_tensors='pt',           # Return PyTorch tensor
             return_attention_mask=True      # Return attention mask
             )
         
@@ -120,7 +124,8 @@ def preprocessing_for_bert(text: str):
     return input_ids, attention_masks
 
 def bert_predict(model, dataloader):
-    """Perform a forward pass on the trained BERT model to predict probabilities
+    """
+    Perform a forward pass on the trained BERT model to predict probabilities.
     """
     # Put the model into the evaluation mode. The dropout layers are disabled during
     # the test time. The predictions also do not need these functions. 
@@ -149,7 +154,7 @@ def bert_predict(model, dataloader):
 
     return probs
 
-def get_class(code):
+def get_class(code: int) -> str:
     """
     @param: the position of the class with the maximum probability.
     Return the mapped class name
@@ -176,9 +181,9 @@ def get_class(code):
     key_list = list(class_dict.keys())
     val_list = list(class_dict.values())
     position = val_list.index(code)
-    return(key_list[position])
+    return key_list[position]
 
-def class_map(name):
+def class_map(name: str) -> str:
     """
     @param: the name of the predicted class.
     Return the mapped parent class: Neutral, Negative, Positive, Success, Invalid Reason, or Safety and Side Effects
@@ -202,4 +207,4 @@ def class_map(name):
         'Interim_Analysis':"Neutral", 
         'Covid19':"Neutral"
         }
-    return(main_reasons_dict[name])
+    return main_reasons_dict[name]

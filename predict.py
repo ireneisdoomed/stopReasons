@@ -23,20 +23,15 @@ Created on Wed Sep 29 12:15:38 2021
 import argparse
 import csv
 import logging
-import sys
 
 import pandas as pd
 import torch
-from numpy import argmax
 from torch.utils.data import DataLoader, TensorDataset
-from transformers import BertModel, BertTokenizer
 
 from src.common_classes import (BertClassifier, bert_predict, class_map,
-                                get_class, preprocessing_for_bert,
-                                text_preprocessing)
+                                get_class, preprocessing_for_bert)
 
-logging.basicConfig(level=logging.ERROR)
-names_studies = [
+studies_column_names = [
     'nct_id',
     'nlm_download_date_description',
     'study_first_submitted_date',
@@ -104,7 +99,7 @@ names_studies = [
 ]
 
 
-def prepare_data(df):
+def prepare_data(df: pd.DataFrame) -> DataLoader:
     # Display 5 samples from the data
     print('The data set is loaded')
     # Run `preprocessing_for_bert` on the data set
@@ -117,7 +112,9 @@ def prepare_data(df):
 
 
 def get_parser():
-    """Get parser object for script predict.py"""
+    """
+    Get parser object for script predict.py.
+    """
     parser = argparse.ArgumentParser(
         description='This script categorises why a clinical trial has stopped into several classes.'
     )
@@ -144,8 +141,13 @@ def get_parser():
     return parser
 
 
-def main(input_file, model_path: str, output_file: str) -> None:
-    """Module to apply a NLP model to categorise the reason why a clinical trial has stopped early."""
+def main(input_file: str, model_path: str, output_file: str) -> None:
+    """
+    Module to apply a NLP model to categorise the reason why a clinical trial has stopped early.
+    """
+
+    # initialize logging
+    logging.basicConfig(level=logging.ERROR)
 
     # load model
     model = torch.load(model_path)
