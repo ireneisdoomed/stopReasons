@@ -42,7 +42,7 @@ import sys
 
  
 # modify the model path to load the model    
-model=torch.load('/Users/irene/Desktop/PRs/stopReasons/data/bert_trials.pth')
+# model=torch.load('/Users/irene/Desktop/PRs/stopReasons/data/bert_trials.pth')
 
 logging.basicConfig(level=logging.ERROR)
 names_studies = ['nct_id','nlm_download_date_description',
@@ -88,6 +88,12 @@ def get_parser():
         required=True,
     )
     parser.add_argument(
+        '--model',
+        help='Input PyTorch model to be applied on the data.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
         '--output_file',
         help='Output TSV file containing the reasons to stop of a clinical trial with their corresponding 2 levels of categories.',
         type=str,
@@ -100,11 +106,13 @@ def get_parser():
 # make predictions
 # =============================================================================
     
-def main(input_file, output_file):
+def main(input_file, model_path: str, output_file: str) -> None:
+    # modify the model path to load the model    
+    model=torch.load(model_path)
 
     # load the imput file studies.tsv, and extract the columns needed
     studies_file = input_file
-    reader = pd.read_csv(studies_file, sep='\t')
+    reader = pd.read_csv(studies_file, sep='\t').sample(frac=0.01)
     reader = reader[reader['why_stopped'].notna()]
     reader = (reader[['why_stopped', 'nct_id']]).drop_duplicates()
 
@@ -120,10 +128,8 @@ def main(input_file, output_file):
     for ind, row in stopped.iterrows():
         # get all the classes that have a probability more than a threshold of 0.01 and order them based on the likelihood
         # from bigger to smaller
-        print(probs[i])
         class_indices=sorted([j for j in range(len(probs[i])) if probs[i][j] >= 0.01], reverse=True)
         class_indices=class_indices[0:3]
-        print(row[['why_stopped', 'nct_id']])
         i=i+1
         # create a list of the classes assigned
         subclasses_all=[]
@@ -136,5 +142,5 @@ def main(input_file, output_file):
 if __name__ == '__main__':
     args = get_parser().parse_args()
 
-    main(args.input_file, args.output_file)
+    main(args.input_file, args.model, args.output_file)
     
