@@ -161,7 +161,7 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
 
     # load the input file studies.tsv, and extract the columns needed
     studies_file = input_file
-    reader = pd.read_csv(studies_file, sep='\t').sample(frac=0.01)
+    reader = pd.read_csv(studies_file, sep='\t')
     reader = reader[reader['why_stopped'].notna()]
     reader = (reader[['why_stopped', 'nct_id']]).drop_duplicates()
 
@@ -174,7 +174,7 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
     # export predictions
     with open(output_file, 'w') as output:
         writer_object = csv.writer(output, delimiter='\t', lineterminator='\n')
-        writer_object.writerow(['why_stopped', 'subclass', 'superclass'])
+        writer_object.writerow(['why_stopped', 'subclasses', 'superclasses'])
 
         i = 0
         stopped = reader[reader['why_stopped'].notnull()]
@@ -191,7 +191,7 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
                 subclasses_all.append(get_class(class_index))
                 superclasses_all.append(class_map(get_class(class_index)))
             writer_object.writerow([row['why_stopped'].replace('\r~', ''), subclasses_all, superclasses_all])
-            output.close()
+        output.close()
     logging.info(f'Predictions saved to {output_file}. Exiting.')
 
 
