@@ -1,7 +1,7 @@
 # stopReasons
 Implementation of a NLP classifier based on [BERT](https://huggingface.co/bert-base-uncased) that assigns one or multiple classes to each of the clinical trial stop reasons.
 
-This way, an OT Platform user could have a structured representation of why a clinical trial has stopped early.
+This provides a structured representation of why a clinical trial has stopped early.
 
 ## Usage
 
