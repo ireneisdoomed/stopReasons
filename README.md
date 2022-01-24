@@ -7,7 +7,7 @@ This provides a structured representation of why a clinical trial has stopped ea
 
 1. Create environment and install dependencies.
 
-```python
+```bash
 conda create -n stopReasons  python=3.7 -y -c conda-forge --file requirements.txt
 conda activate stopReasons
 export PYTHONPATH="$PYTHONPATH:$(pwd)"
@@ -39,7 +39,7 @@ studies.printSchema()
 ```
 3. Categorize text.
 
-```python
+```bash
 export MODEL=gs://ot-team/olesya/bert_trials
 
 python predict.py \
