@@ -172,23 +172,26 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
     logging.info(f'Predictions are ready. Writing to {output_file}...')
 
     # export predictions
-    csv_file1 = open(output_file, 'w')
-    writer1 = csv.writer(csv_file1, delimiter='\t', lineterminator='\n')
-    i = 0
-    stopped = reader[reader['why_stopped'].notnull()]
-    for ind, row in stopped.iterrows():
-        # get all the classes that have a probability more than a threshold of 0.01 and order them based on the likelihood
-        # from bigger to smaller
-        class_indices = sorted([j for j in range(len(probs[i])) if probs[i][j] >= 0.01], reverse=True)
-        class_indices = class_indices[0:3]
-        i = i + 1
-        # create a list of the classes assigned
-        subclasses_all = []
-        superclasses_all = []
-        for class_index in class_indices:
-            subclasses_all.append(get_class(class_index))
-            superclasses_all.append(class_map(get_class(class_index)))
-        writer1.writerow([row['why_stopped'].replace('\r~', ''), subclasses_all, superclasses_all])
+    with open(output_file, 'w') as output:
+        writer_object = csv.writer(output, delimiter='\t', lineterminator='\n')
+        writer_object.writerow(['why_stopped', 'subclass', 'superclass'])
+
+        i = 0
+        stopped = reader[reader['why_stopped'].notnull()]
+        for ind, row in stopped.iterrows():
+            # get all the classes that have a probability more than a threshold of 0.01 and order them based on the likelihood
+            # from bigger to smaller
+            class_indices = sorted([j for j in range(len(probs[i])) if probs[i][j] >= 0.01], reverse=True)
+            class_indices = class_indices[0:3]
+            i = i + 1
+            # create a list of the classes assigned
+            subclasses_all = []
+            superclasses_all = []
+            for class_index in class_indices:
+                subclasses_all.append(get_class(class_index))
+                superclasses_all.append(class_map(get_class(class_index)))
+            writer_object.writerow([row['why_stopped'].replace('\r~', ''), subclasses_all, superclasses_all])
+            output.close()
     logging.info(f'Predictions saved to {output_file}. Exiting.')
 
 

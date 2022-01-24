@@ -5,13 +5,12 @@ Created on Tue Nov 23 08:30:21 2021
 
 @author: olesyar
 """
-import torch.nn as nn
-from transformers import BertModel
-from transformers import BertTokenizer
-import torch
-import torch.nn.functional as F
 from typing import Tuple
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from transformers import BertModel, BertTokenizer
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
