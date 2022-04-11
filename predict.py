@@ -161,7 +161,7 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
 
     # load the input file studies.tsv, and extract the columns needed
     studies_file = input_file
-    reader = pd.read_csv(studies_file, sep='\t')
+    reader = pd.read_csv(studies_file, sep='\t', lineterminator='\n')
     reader = reader[reader['why_stopped'].notna()]
     reader = (reader[['why_stopped', 'nct_id']]).drop_duplicates()
 
