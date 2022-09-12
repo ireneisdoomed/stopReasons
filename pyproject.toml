@@ -12,6 +12,7 @@ datasets = "^2.4.0"
 transformers = {extras = ["tf-cpu"], version = "^4.21.3"}
 spark-nlp = "4.1.0"
 pyspark = "^3.3.0"
+pathlib = "^1.0.1"
 
 
 [build-system]
