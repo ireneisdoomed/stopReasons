@@ -1,7 +1,6 @@
 
 from pathlib import Path
 from pyspark.ml import Pipeline
-from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 import sparknlp
 from sparknlp.base import *
@@ -36,24 +35,43 @@ def prepare_spark_nlp_classifier(model_name:str, model_dir: str, spark_instance)
     
     return classifier
 
-def main(spark_instance, model_name, model_dir):
+def main(model_name, model_dir, evidence_path, spark_instance):
     
     # Save and format model from HuggingFace Hub to be ingested by Spark NLP
     prepare_model_from_hub(model_name, model_dir)
-    spark_model = prepare_spark_nlp_classifier(model_name, model_dir, spark_instance)
+    spark_classifier = prepare_spark_nlp_classifier(model_name, model_dir, spark_instance)
 
+    # Load evidence
+    chembl_evd = spark_instance.read.json(evidence_path).filter(F.col("studyStopReason").isNotNull()).limit(100)
 
+    # Prepare the pipeline
+    document_assembler = (
+        DocumentAssembler()
+        .setInputCol('studyStopReason')
+        .setOutputCol('document')
+    )
+    tokenizer = (
+        Tokenizer()
+        .setInputCols(['document'])
+        .setOutputCol('token')
+    )
+    pipeline = Pipeline(stages=[
+        document_assembler,
+        tokenizer,
+        spark_classifier
+    ])
 
-    
+    # Run the pipeline
+    pipeline_model = pipeline.fit(chembl_evd)
+    annotated_df = pipeline_model.transform(chembl_evd)
+    print(annotated_df.printSchema())
+    annotated_df.write.parquet('data/annotated_df.parquet')
 
-    # df = spark_instance.read.json('data/cttv008-25-08-2022.json.gz')
-
-    
 
 if __name__ == "__main__":
 
     spark = sparknlp.start()
 
-    main(spark_instance=spark, model_name='opentargets/stop_reasons_classificator', model_dir='models')
+    main(model_name='opentargets/stop_reasons_classificator', model_dir='models', evidence_path='data/cttv008-25-08-2022.json.gz', spark_instance=spark)
 
 
