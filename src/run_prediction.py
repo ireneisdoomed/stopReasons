@@ -1,3 +1,4 @@
+import logging
 
 from pathlib import Path
 from pyspark.ml import Pipeline
@@ -13,13 +14,13 @@ def save_spark_nlp_classifier(classifier, model_name:str) -> None:
 
 def load_spark_nlp_classifier(model_name:str, spark_instance):
     return (
-        BertForTokenClassification
+        BertForSequenceClassification
         .loadSavedModel(
             f"models/{model_name}/saved_model/1",
             spark_instance
         )
-        .setInputCols(["document", "token"])
-        .setOutputCol("prediction")
+        .setInputCols(["token", "document"])
+        .setOutputCol("label")
         .setCaseSensitive(False)
         .setMaxSentenceLength(512)
     )
@@ -55,17 +56,16 @@ def main(model_name, model_dir, evidence_path, spark_instance):
         .setInputCols(['document'])
         .setOutputCol('token')
     )
-    pipeline = Pipeline(stages=[
-        document_assembler,
-        tokenizer,
-        spark_classifier
-    ])
+
+    finisher = Finisher().setInputCols(['label']).setIncludeMetadata(True)
+
+    pipeline = Pipeline().setStages([document_assembler, tokenizer, spark_classifier, finisher])
 
     # Run the pipeline
-    pipeline_model = pipeline.fit(chembl_evd)
-    annotated_df = pipeline_model.transform(chembl_evd)
+    annotated_df = pipeline.fit(chembl_evd).transform(chembl_evd)
     print(annotated_df.printSchema())
-    annotated_df.write.parquet('data/annotated_df.parquet')
+    annotated_df.withColumn('finished_label', F.explode('finished_label')).select('studyStopReason', 'finished_label').show(1, False, True)
+    annotated_df.write.mode('overwrite').parquet('data/annotated_df.parquet')
 
 
 if __name__ == "__main__":
