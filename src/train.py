@@ -33,13 +33,15 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
     tokenized_datasets = dataset.map(tokenize_function, batched=True)
 
-    small_train_dataset = subset_split(tokenized_datasets, "train", n_samples=500)
-    small_eval_dataset = subset_split(tokenized_datasets, "test", n_samples=500)
+    # small_train_dataset = subset_split(tokenized_datasets, "train", n_samples=500)
+    # small_eval_dataset = subset_split(tokenized_datasets, "test", n_samples=500)
+    train_dataset = tokenized_datasets["train"]
+    eval_dataset = tokenized_datasets["test"]
 
     logging.info("Loading model")
     data_collator = DefaultDataCollator(return_tensors="tf")
-    tf_train_dataset = convert_to_tf_dataset(small_train_dataset, data_collator, shuffle_flag=True, batch_size=32)
-    tf_validation_dataset = convert_to_tf_dataset(small_eval_dataset, data_collator, shuffle_flag=False, batch_size=32)
+    tf_train_dataset = convert_to_tf_dataset(train_dataset, data_collator, shuffle_flag=True, batch_size=32)
+    tf_validation_dataset = convert_to_tf_dataset(eval_dataset, data_collator, shuffle_flag=False, batch_size=32)
 
     model = TFAutoModelForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=17)
     model.compile(
@@ -49,9 +51,9 @@ def main():
     )
 
     logging.info("Training model")
-    model.fit(tf_train_dataset, epochs=3, validation_data=tf_validation_dataset)
+    model.fit(tf_train_dataset, epochs=10, validation_data=tf_validation_dataset)
 
-    model.save_pretrained('models/model_500n_3_epochs_classificator_tf', saved_model=True, save_format='tf')
+    model.save_pretrained('models/model_all_10_epochs_classificator_tf', saved_model=True, save_format='tf')
     logging.info("Model saved. Exiting.")
 
 if __name__ == "__main__":
