@@ -8,9 +8,48 @@ Created on Tue Nov 23 08:30:21 2021
 from typing import Tuple
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from transformers import BertModel, BertTokenizer
+from transformers import BertTokenizer
+
+CLASS_TO_IDX = {
+        'Another_Study': 0,
+        'Business_Administrative': 1,
+        'Covid19': 2,
+        'Endpoint_Met': 3,
+        'Ethical_Reason': 4,
+        'Insufficient_Data': 5,
+        'Insufficient_Enrollment': 6,
+        'Interim_Analysis': 7,
+        'Invalid_Reason': 8,
+        'Logistics_Resources': 9,
+        'Negative': 10,
+        'No_Context': 11,
+        'Regulatory': 12,
+        'Safety_Sideeffects': 13,
+        'Study_Design': 14,
+        'Study_Staff_Moved': 15,
+        'Success': 16,
+    }
+
+CLASS_TO_SUPER = {
+        'Business_Administrative': "Possibly_Negative",
+        'Another_Study': "Neutral",
+        'Negative': "Negative",
+        'Study_Design': "Neutral",
+        'Invalid_Reason': "Invalid_Reason",
+        'Ethical_Reason': "Neutral",
+        'Insufficient_Data': "Neutral",
+        'Insufficient_Enrollment': "Neutral",
+        'Study_Staff_Moved': "Neutral",
+        'Endpoint_Met': "Neutral",
+        'Regulatory': "Neutral",
+        'Logistics_Resources': "Neutral",
+        'Safety_Sideeffects': "Safety_Sideeffects",
+        'No_Context': "Invalid_Reason",
+        'Success': "Success",
+        'Interim_Analysis': "Neutral",
+        'Covid19': "Neutral",
+    }
+
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -19,59 +58,6 @@ if torch.cuda.is_available():
 else:
     print('No GPU available, using the CPU instead.')
     device = torch.device("cpu")
-
-# Create the BertClassfier class
-class BertClassifier(nn.Module):
-    """
-    Bert Model for Classification Tasks.
-    """
-
-    def __init__(self, freeze_bert=False):
-        """
-        @param    bert: a BertModel object
-        @param    classifier: a torch.nn.Module classifier
-        @param    freeze_bert (bool): Set `False` to fine-tune the BERT model
-        """
-        super(BertClassifier, self).__init__()
-        # Specify hidden size of BERT, hidden size of our classifier, and number of labels
-        D_in, H, D_out = 768, 50, 17
-
-        # Instantiate BERT model
-        self.bert = BertModel.from_pretrained('bert-base-uncased')
-
-        # Instantiate an one-layer feed-forward classifier
-        self.classifier = nn.Sequential(
-            nn.Linear(D_in, H),
-            nn.ReLU(),
-            # nn.Dropout(0.5),
-            nn.Linear(H, D_out),
-        )
-
-        # Freeze the BERT model
-        if freeze_bert:
-            for param in self.bert.parameters():
-                param.requires_grad = False
-
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
-        """
-        Feed input to BERT and the classifier to compute logits.
-        @param    input_ids (torch.Tensor): an input tensor with shape (batch_size,
-                      max_length)
-        @param    attention_mask (torch.Tensor): a tensor that hold attention mask
-                      information with shape (batch_size, max_length)
-        @return   logits (torch.Tensor): an output tensor with shape (batch_size,
-                      num_labels)
-        """
-        # Feed input to BERT
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-
-        # Extract the last hidden state of the token `[CLS]` for classification task
-        last_hidden_state_cls = outputs[0][:, 0, :]
-
-        # Feed input to classifier to compute logits
-        logits = self.classifier(last_hidden_state_cls)
-
-        return logits
 
 
 def text_preprocessing(text: str) -> str:
@@ -150,68 +136,6 @@ def bert_predict(model, dataloader):
     # Concatenate logits from each batch
     all_logits = torch.cat(all_logits, dim=0)
 
-    # Apply softmax to calculate probabilities. For more than one class classification,
-    # sigmoid should be normally applied. The tests showed that for this task, sigmoid
-    # reduces the accuracy quite substantially, while softmax produces more accurate results
-    probs = F.softmax(all_logits, dim=1).cpu().numpy()
+    # sigmoid shows higher accuracy on multi class classification tasks
+    return all_logits.sigmoid().cpu().numpy()
 
-    return probs
-
-
-def get_class(code: int) -> str:
-    """
-    @param: the position of the class with the maximum probability.
-    Return the mapped class name
-    """
-
-    class_dict = {
-        'Business_Administrative': 0,
-        'Another_Study': 1,
-        'Negative': 2,
-        'Study_Design': 3,
-        'Invalid_Reason': 4,
-        'Ethical_Reason': 5,
-        'Insufficient_Data': 6,
-        'Insufficient_Enrollment': 7,
-        'Study_Staff_Moved': 8,
-        'Endpoint_Met': 9,
-        'Regulatory': 10,
-        'Logistics_Resources': 11,
-        'Safety_Sideeffects': 12,
-        'No_Context': 13,
-        'Success': 14,
-        'Interim_Analysis': 15,
-        'Covid19': 16,
-    }
-    key_list = list(class_dict.keys())
-    val_list = list(class_dict.values())
-    position = val_list.index(code)
-    return key_list[position]
-
-
-def class_map(name: str) -> str:
-    """
-    @param: the name of the predicted class.
-    Return the mapped parent class: Neutral, Negative, Positive, Success, Invalid Reason, or Safety and Side Effects
-    """
-
-    main_reasons_dict = {
-        'Business_Administrative': "Possibly_Negative",
-        'Another_Study': "Neutral",
-        'Negative': "Negative",
-        'Study_Design': "Neutral",
-        'Invalid_Reason': "Invalid_Reason",
-        'Ethical_Reason': "Neutral",
-        'Insufficient_Data': "Neutral",
-        'Insufficient_Enrollment': "Neutral",
-        'Study_Staff_Moved': "Neutral",
-        'Endpoint_Met': "Neutral",
-        'Regulatory': "Neutral",
-        'Logistics_Resources': "Neutral",
-        'Safety_Sideeffects': "Safety_Sideeffects",
-        'No_Context': "Invalid_Reason",
-        'Success': "Success",
-        'Interim_Analysis': "Neutral",
-        'Covid19': "Neutral",
-    }
-    return main_reasons_dict[name]

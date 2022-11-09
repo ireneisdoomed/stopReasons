@@ -24,79 +24,13 @@ import argparse
 import csv
 import logging
 
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.common_classes import BertClassifier, bert_predict, class_map, get_class, preprocessing_for_bert
-
-studies_column_names = [
-    'nct_id',
-    'nlm_download_date_description',
-    'study_first_submitted_date',
-    'results_first_submitted_date',
-    'disposition_first_submitted_date',
-    'last_update_submitted_date',
-    'study_first_submitted_qc_date',
-    'study_first_posted_date',
-    'study_first_posted_date_type',
-    'results_first_submitted_qc_date',
-    'results_first_posted_date',
-    'results_first_posted_date_type',
-    'disposition_first_submitted_qc_date',
-    'disposition_first_posted_date',
-    'disposition_first_posted_date_type',
-    'last_update_submitted_qc_date',
-    'last_update_posted_date',
-    'last_update_posted_date_type',
-    'start_month_year',
-    'start_date_type',
-    'start_date',
-    'verification_month_year',
-    'verification_date',
-    'completion_month_year',
-    'completion_date_type',
-    'completion_date',
-    'primary_completion_month_year',
-    'primary_completion_date_type',
-    'primary_completion_date',
-    'target_duration',
-    'study_type',
-    'acronym',
-    'baseline_population',
-    'brief_title',
-    'official_title',
-    'overall_status',
-    'last_known_status',
-    'phase',
-    'enrollment',
-    'enrollment_type',
-    'source',
-    'limitations_and_caveats',
-    'number_of_arms',
-    'number_of_groups',
-    'why_stopped',
-    'has_expanded_access',
-    'expanded_access_type_individual',
-    'expanded_access_type_intermediate',
-    'expanded_access_type_treatment',
-    'has_dmc',
-    'is_fda_regulated_drug',
-    'is_fda_regulated_device',
-    'is_unapproved_device',
-    'is_ppsd',
-    'is_us_export',
-    'biospec_retention',
-    'biospec_description',
-    'ipd_time_frame',
-    'ipd_access_criteria',
-    'ipd_url',
-    'plan_to_share_ipd',
-    'plan_to_share_ipd_description',
-    'created_at',
-    'updated_at',
-]
-
+from src.common_classes import bert_predict, preprocessing_for_bert, CLASS_TO_IDX, CLASS_TO_SUPER
+from src.BertClassifier import BertClassifier
 
 def prepare_data(df: pd.DataFrame) -> DataLoader:
     """
@@ -108,9 +42,8 @@ def prepare_data(df: pd.DataFrame) -> DataLoader:
 
     # Create the DataLoader for our prediction set
     dataset = TensorDataset(data_inputs, data_masks)
-    dataloader = DataLoader(dataset, batch_size=32, num_workers=5)
 
-    return dataloader
+    return DataLoader(dataset, batch_size=32, num_workers=5)
 
 
 def get_parser():
@@ -161,41 +94,34 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
 
     # load the input file studies.tsv, and extract the columns needed
     studies_file = input_file
-    reader = pd.read_csv(studies_file, sep='\t', lineterminator='\n')
-    reader = reader[reader['why_stopped'].notna()]
-    reader = (reader[['why_stopped', 'nct_id']]).drop_duplicates()
+    studies = (
+        pd.read_csv(studies_file, sep='\t', lineterminator='\n').dropna(subset=['why_stopped'], axis=0)
+        [['why_stopped', 'nct_id']].drop_duplicates()
+    )
 
     # generate probabilities
-    model_data_loader = prepare_data(reader)
+    model_data_loader = prepare_data(studies)
     logging.info('Embeddings generated from input. \n Data is ready to be used. Making predictions...')
-    probs = bert_predict(model, model_data_loader)
+    probs = bert_predict(model, model_data_loader) # numpy matrix of shape (n_reasons, n_classes)
+    idx_to_class_dict = {v: k for k, v in CLASS_TO_IDX.items()}
+    probs_df = pd.DataFrame(probs).rename(columns=idx_to_class_dict)
+    # Per row (reason to stop), get the labels of the classes with a probability that is higher than .3
+    predictions_df = pd.DataFrame(
+        probs_df.apply(lambda row: row.loc[row >= 0.3].index.values, axis=1)
+    ).rename(columns={0: 'subclasses'})
+    # Map each subclass to the corresponding superclass
+    predictions_df['superclasses'] = predictions_df.subclasses.apply(lambda value: list(set(np.vectorize(CLASS_TO_SUPER.get)(value))) if len(value) > 0 else None)
+    
+    # merge the predictions with the studies dataframe to obtain a df with the nct_id, the reason to stop and the predicted classes
+    studies_with_predictions = studies.merge(predictions_df, left_index=True, right_index=True)
+
     logging.info(f'Predictions are ready. Writing to {output_file}...')
-
-    # export predictions
-    with open(output_file, 'w') as output:
-        writer_object = csv.writer(output, delimiter='\t', lineterminator='\n')
-        writer_object.writerow(['why_stopped', 'subclasses', 'superclasses'])
-
-        i = 0
-        stopped = reader[reader['why_stopped'].notnull()]
-        for ind, row in stopped.iterrows():
-            # get all the classes that have a probability more than a threshold of 0.01 and order them based on the likelihood
-            # from bigger to smaller
-            class_indices = sorted([j for j in range(len(probs[i])) if probs[i][j] >= 0.01], reverse=True)
-            class_indices = class_indices[0:3]
-            i = i + 1
-            # create a list of the classes assigned
-            subclasses_all = []
-            superclasses_all = []
-            for class_index in class_indices:
-                subclasses_all.append(get_class(class_index))
-                superclasses_all.append(class_map(get_class(class_index)))
-            writer_object.writerow([row['why_stopped'].replace('\r~', ''), subclasses_all, superclasses_all])
-        output.close()
-    logging.info(f'Predictions saved to {output_file}. Exiting.')
+    studies_with_predictions.to_json(output_file, orient='records', lines=True)
 
 
 if __name__ == '__main__':
     args = get_parser().parse_args()
 
     main(args.input_file, args.model, args.output_file)
+
+
