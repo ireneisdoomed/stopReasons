@@ -5,6 +5,7 @@ Created on Tue Nov 23 08:30:21 2021
 
 @author: olesyar
 """
+import re
 from typing import Tuple
 
 import torch
@@ -62,10 +63,40 @@ else:
 
 def text_preprocessing(text: str) -> str:
     """
+    - Remove entity mentions (eg. '@united')
+    - Correct errors (eg. '&amp;' to '&')
     @param    text (str): a string to be processed.
     @return   text (Str): the processed string.
     """
-    return text.strip()
+    
+    text = text.lower()
+    text = re.sub(r"what's", "what is ", text)
+    text = re.sub(r"won't", "will not ", text)
+    text = re.sub(r"\'s", " ", text)
+    text = re.sub(r"\'ve", " have ", text)
+    text = re.sub(r"can't", "can not ", text)
+    text = re.sub(r"n't", " not ", text)
+    text = re.sub(r"i'm", "i am ", text)
+    text = re.sub(r"\'re", " are ", text)
+    text = re.sub(r"\'d", " would ", text)
+    text = re.sub(r"\'ll", " will ", text)
+    text = re.sub(r"\'scuse", " excuse ", text)
+    text = re.sub(r"\'\n", " ", text)
+    text = re.sub(r"-", " ", text)
+    text = re.sub(r"\'\xa0", " ", text)
+    text = re.sub('\s+', ' ', text)
+    text = ''.join(c for c in text if not c.isnumeric())
+    
+    # Remove '@name'
+    text = re.sub(r'(@.*?)[\s]', ' ', text)
+
+    # Replace '&amp;' with '&'
+    text = re.sub(r'&amp;', '&', text)
+
+    # Remove trailing whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
 
 
 # Create a function to BERT tokenize a set of texts
