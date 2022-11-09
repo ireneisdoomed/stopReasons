@@ -78,7 +78,7 @@ def preprocessing_for_bert(text: str) -> Tuple[torch.Tensor, torch.Tensor]:
     """
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-    MAX_LEN = 64
+    MAX_LEN = 177
 
     # Create empty lists to store outputs
     input_ids = []
