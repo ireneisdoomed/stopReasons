@@ -46,6 +46,16 @@ python predict.py \
     --input_file studies.tsv \
     --model $MODEL \
     --output_file trials_predictions.tsv
+
+# schema of the output data
+predictions.printSchema()
+>> root
+    |-- nct_id: string (nullable = true)
+    |-- subclasses: array (nullable = true)
+    |    |-- element: string (containsNull = true)
+    |-- superclasses: array (nullable = true)
+    |    |-- element: string (containsNull = true)
+    |-- why_stopped: string (nullable = true)
 ```
 
 ## Contributing
