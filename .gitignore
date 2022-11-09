@@ -2,3 +2,4 @@ temp/
 src/report_cache/
 data/bert_trials.pth
 data/studies.tsv
+env/**/*
