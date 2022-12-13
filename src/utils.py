@@ -1,7 +1,11 @@
 import shutil
 
+import numpy as np
+from sklearn.metrics import f1_score, roc_auc_score, accuracy_score
+import torch
+from transformers import AutoTokenizer, EvalPrediction, TFAutoModelForSequenceClassification
+
 from pathlib import Path
-from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 
 def export_labels_to_model(model_name: str, model) -> None:
     """
@@ -67,3 +71,48 @@ def prepare_model_from_hub(model_name: str, model_dir:str) -> None:
     if not Path(model_path).is_dir():
         save_model_from_hub(model_name)
         copy_tokenizer_vocab_to_model(model_name)
+
+def get_label_metadata(dataset):
+    labels = [label for label in dataset['train'].features.keys() if label not in ['text', 'label_descriptions']]
+    id2label = dict(enumerate(labels))
+    label2id = {label:idx for idx, label in enumerate(labels)}
+    return labels, id2label, label2id
+
+def multi_label_metrics(predictions, labels, threshold=0.5):
+  # first, apply sigmoid on predictions which are of shape (batch_size, num_labels)
+  sigmoid = torch.nn.Sigmoid()
+  probs = sigmoid(torch.Tensor(predictions))
+  # next, use threshold to turn them into integer predictions
+  y_pred = np.zeros(probs.shape)
+  y_pred[np.where(probs >= threshold)] = 1
+  # finally, compute metrics
+  y_true = labels
+  f1_micro_average = f1_score(y_true=y_true, y_pred=y_pred, average='micro')
+  roc_auc = roc_auc_score(y_true, y_pred, average = 'micro')
+  accuracy = accuracy_score(y_true, y_pred)
+  return {'f1': f1_micro_average,
+              'roc_auc': roc_auc,
+              'accuracy': accuracy}
+
+
+def compute_metrics(p: EvalPrediction):
+  preds = p.predictions[0] if isinstance(p.predictions, 
+            tuple) else p.predictions
+  return multi_label_metrics(
+    predictions=preds, 
+    labels=p.label_ids
+  )
+
+def subset_split(dataset, split, n_samples):
+    return dataset[split].shuffle(seed=42).select(range(n_samples))
+
+def convert_to_tf_dataset(dataset, data_collator, shuffle_flag, batch_size):
+    return (
+        dataset.to_tf_dataset(
+            columns=["attention_mask", "input_ids", "token_type_ids"],
+            label_cols=["labels"],
+            shuffle=shuffle_flag,
+            collate_fn=data_collator,
+            batch_size=batch_size
+        )
+    )
