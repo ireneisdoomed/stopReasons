@@ -63,7 +63,6 @@ def main(model_name, model_dir, evidence_path, spark_instance):
 
     # Run the pipeline
     annotated_df = pipeline.fit(chembl_evd).transform(chembl_evd)
-    print(annotated_df.printSchema())
     annotated_df.withColumn('finished_label', F.explode('finished_label')).select('studyStopReason', 'finished_label').show(1, False, True)
     annotated_df.write.mode('overwrite').parquet('data/annotated_df.parquet')
 
