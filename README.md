@@ -45,7 +45,7 @@ export MODEL=gs://ot-team/olesya/bert_trials
 python predict.py \
     --input_file studies.tsv \
     --model $MODEL \
-    --output_file trials_predictions.tsv
+    --output_file trials_predictions.json
 
 # schema of the output data
 predictions.printSchema()
