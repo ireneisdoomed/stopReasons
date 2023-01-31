@@ -49,6 +49,7 @@ CLASS_TO_SUPER = {
         'Success': "Success",
         'Interim_Analysis': "Neutral",
         'Covid19': "Neutral",
+        "Uncategorised": "Uncategorised"
     }
 
 

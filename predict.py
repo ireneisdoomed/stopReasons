@@ -109,8 +109,12 @@ def main(input_file: str, model_path: str, output_file: str) -> None:
     predictions_df = pd.DataFrame(
         probs_df.apply(lambda row: row.loc[row >= 0.3].index.values, axis=1)
     ).rename(columns={0: 'subclasses'})
-    # Map each subclass to the corresponding superclass
-    predictions_df['superclasses'] = predictions_df.subclasses.apply(lambda value: list(set(np.vectorize(CLASS_TO_SUPER.get)(value))) if len(value) > 0 else None)
+
+    # Map each subclass to the corresponding superclass and assing "Uncategorised" if no output is provided
+    predictions_df = predictions_df.assign(
+        subclasses=predictions_df.subclasses.apply(lambda value: value if len(value) > 0 else ['Uncategorised']),
+        superclasses=predictions_df.subclasses.apply(lambda value: list(set(np.vectorize(CLASS_TO_SUPER.get)(value))) if len(value) > 0 else ["Uncategorised"])
+    )
     
     # merge the predictions with the studies dataframe to obtain a df with the nct_id, the reason to stop and the predicted classes
     studies_with_predictions = studies.merge(predictions_df, left_index=True, right_index=True)
