@@ -2,10 +2,12 @@
 
 ```{r, simDataPrep}
 # reading vectors
-dd <- read.table(file = "../data/wvectors.csv",
-                 sep = ",",
-                 header = TRUE,
-                 row.names = 1)
+dd <- read.table(
+    file = "../data/wvectors.csv",
+    sep = ",",
+    header = TRUE,
+    row.names = 1
+)
 rows <- row.names(dd) %>%
     str_replace("^_", "") %>%
     str_replace(":\\s\\d+", "") %>%
@@ -19,20 +21,22 @@ dend <- as.dendrogram(hc)
 dend_data <- dendro_data(dend, type = "rectangle")
 
 # Class frequencies
-freq <- read_csv(file = "../data/frequencies.csv",
-                 col_names = FALSE) %>%
+freq <- read_csv(
+    file = "../data/frequencies.csv",
+    col_names = FALSE
+) %>%
     setNames(c("class", "freq", "category")) %>%
-        mutate(class = str_replace(class, "^_", "")) %>%
-        mutate(class = str_replace(class, ":\\s\\d+", "")) %>%
-        mutate(class = str_replace_all(class, "_", " ")) %>%
-        mutate(class = str_to_sentence(class)) %>%
-        mutate(class = fct_relevel(
-            class,
-            dend_data$labels$label %>%
-                str_replace_all("_", " ") %>%
-                str_to_sentence()
-        )) %>%
-        mutate(class = fct_recode(class, "Not a clinical trial" = "Not a clinical t"))
+    mutate(class = str_replace(class, "^_", "")) %>%
+    mutate(class = str_replace(class, ":\\s\\d+", "")) %>%
+    mutate(class = str_replace_all(class, "_", " ")) %>%
+    mutate(class = str_to_sentence(class)) %>%
+    mutate(class = fct_relevel(
+        class,
+        dend_data$labels$label %>%
+            str_replace_all("_", " ") %>%
+            str_to_sentence()
+    )) %>%
+    mutate(class = fct_recode(class, "Not a clinical trial" = "Not a clinical t"))
 ```
 
 ```{r, simDendroPlot, cache = TRUE}
@@ -41,25 +45,29 @@ p_dendro <- ggplot(dend_data$segments) +
     geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
     ## geom_text(data = dend_data$labels, aes(x, y, label = label),
     ##           hjust = 0, size = 3)+
-    scale_y_reverse(expand = c(0,0)) +
+    scale_y_reverse(expand = c(0, 0)) +
     scale_x_continuous(expand = c(0, 0.7)) +
     coord_flip() +
-    theme(axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          axis.title = element_blank(),
-          axis.line = element_blank(),
-          panel.background = element_blank())
+    theme(
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.line = element_blank(),
+        panel.background = element_blank()
+    )
 p_heatmap <- ggplot(freq) +
     geom_tile(aes(x = "freq", y = class, fill = freq), color = "grey10") +
     geom_text(aes(x = "freq", y = class, label = freq), size = 3) +
     scale_fill_material("blue") +
     scale_x_discrete(expand = c(0, 0)) +
-    theme(axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          axis.title = element_blank(),
-          axis.line = element_blank(),
-          panel.background = element_blank(),
-          legend.position = "none")
+    theme(
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.line = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "none"
+    )
 p_categories <- freq %>%
     ggplot() +
     geom_tile(aes(x = "category", y = class, fill = category),
@@ -68,14 +76,16 @@ p_categories <- freq %>%
     scale_y_discrete(position = "right") +
     scale_fill_nejm(name = "Implication") +
     scale_x_discrete(expand = c(0, 0)) +
-    theme(axis.text.x = element_blank(),
-          axis.ticks = element_blank(),
-          axis.title = element_blank(),
-          axis.line = element_blank(),
-          legend.title = element_text(size = 10),
-          legend.text = element_text(size = 9),
-          legend.key.size = unit(0.8, "line"),
-          panel.background = element_blank())
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.line = element_blank(),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 9),
+        legend.key.size = unit(0.8, "line"),
+        panel.background = element_blank()
+    )
 
 plot_grid(
     p_dendro,
@@ -84,5 +94,4 @@ plot_grid(
     rel_widths = c(1, 0.2, 0.6),
     nrow = 1
 )
-
 ```

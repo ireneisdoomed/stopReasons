@@ -3,7 +3,7 @@
 
 ```{r, predictions_dataConfig}
 gs_path <- "gs://open-targets-data-releases/"
-data_release <- "21.11"
+data_release <- "22.04"
 all_evidence_path <- paste(
     gs_path, data_release,
     "/output/etl/parquet/evidence/",
@@ -14,7 +14,6 @@ disease_path <- paste(
     "/output/etl/parquet/diseases/",
     sep = ""
 )
-
 ```
 
 ```{r, predictions_dataStopReasons}
@@ -29,21 +28,22 @@ classes <- read_csv(
 )
 
 ## Olesya's predictions for stop reason class
-precitions_path <- "gs://ot-team/dochoa/stopped_predictions_27.11.csv"
+precitions_path <- "gs://ot-team/dochoa/stopped_predictions_formatted_30_09_22.csv"
 stop_predictions <- spark_read_csv(
     sc,
     path = precitions_path,
+    header = TRUE,
     # delimiter = "\t",
-    columns = c(
-        "why_stopped",
-        "phase",
-        "nct_id",
-        "start_date",
-        "status",
-        "last_update_posted_date",
-        "completion_date",
-        "prediction"
-    ),
+    # columns = c(
+    #     "why_stopped",
+    #     "phase",
+    #     "nctid",
+    #     "start_date",
+    #     "status",
+    #     "last_update_posted_date",
+    #     "completion_date",
+    #     "prediction"
+    # ),
     memory = FALSE
 ) %>%
     mutate(prediction = ifelse(
@@ -53,16 +53,14 @@ stop_predictions <- spark_read_csv(
     )) %>%
     collect() %>%
     left_join(classes, by = c("prediction" = "class")) %>%
-    mutate(start_date = as.Date(start_date, format = "%d.%m.%Y")) %>%
-    mutate(completion_date = as.Date(completion_date, format = "%d.%m.%Y")) %>%
+    mutate(start_date = as.Date(start_date, format = "%d/%m/%Y")) %>%
+    mutate(last_update_posted_date = as.Date(last_update_posted_date, format = "%d/%m/%Y")) %>%
+    mutate(completion_date = as.Date(completion_date, format = "%d/%m/%Y")) %>%
     mutate(phase = str_replace_all(phase, "nan", "Unknown")) %>%
     mutate(
         last_update_posted_date =
             as.Date(last_update_posted_date, format = "%d.%m.%Y")
-    ) %>%
-    # problematic parsing
-    filter(nct_id != "NCT00560625")
-
+    )
 ```
 
 ### Predicted stop reason by year
@@ -76,10 +74,10 @@ clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
         studyStartDate
     ) %>%
     sdf_unnest(urls) %>%
-    mutate(nct_id = regexp_extract(url, "(.+)(id=%22)(.+)(%22)", 3)) %>%
+    mutate(nctid = regexp_extract(url, "(.+)(id=%22)(.+)(%22)", 3)) %>%
     collect() %>%
-    left_join(stop_predictions, by = "nct_id") %>%
-    mutate(nct_id = ifelse(nct_id == "", NA, nct_id)) %>%
+    left_join(stop_predictions, by = "nctid") %>%
+    mutate(nctid = ifelse(nctid == "", NA, nctid)) %>%
     select(-url)
 ```
 
@@ -134,7 +132,7 @@ stop_by_ta <- clinical %>%
     filter(!is.na(prediction)) %>%
     collect() %>%
     left_join(disease_ta, by = c("diseaseId" = "id")) %>%
-    select(diseaseId, drugId, nct_id, taTerm) %>%
+    select(diseaseId, drugId, nctid, taTerm) %>%
     distinct()
 ```
 
@@ -145,13 +143,13 @@ data_to_plot <- stop_predictions %>%
     # filter(year(start_date) > 1990) %>%
     mutate(year = year(start_date)) %>%
     mutate(nicename = fct_rev(fct_infreq(nicename))) %>%
-    mutate(nicename = fct_relevel(nicename, "Unclassified", after = Inf)) %>%
+    mutate(nicename = fct_relevel(nicename, "Unclassified", after = 0L)) %>%
     ## adding TA bit
-    left_join(stop_by_ta, by = "nct_id")
+    left_join(stop_by_ta, by = "nctid")
 
 stop_to_plot <- bind_rows(
     data_to_plot %>%
-        mutate(year = replace_na(year, "Other")) %>%
+        mutate(year = replace_na(as.character(year), "Other")) %>%
         mutate(year = fct_other(
             as.factor(year),
             keep = as.character(seq(1995, 2021))
@@ -186,6 +184,7 @@ stop_to_plot <- bind_rows(
 ) %>%
     mutate(grouping = factor(grouping, levels = unique(grouping))) %>%
     mutate(grouping = fct_relevel(grouping, "Other", after = Inf)) %>%
+    mutate(nicename = fct_relevel(nicename, "Unclassified", after = 0L)) %>%
     mutate(comparison = fct_infreq(comparison)) %>%
     mutate(
         interval = cut(
@@ -212,25 +211,27 @@ p_meta_tiles <- data_to_plot %>%
     ggplot(aes(x = "this", y = nicename, fill = meta)) +
     geom_tile(color = "white", size = .5) +
     scale_x_discrete(expand = c(0, 0)) +
-    scale_fill_manual(name = "Reason implications",
-    values = c(
-        "#E64B35FF",
-        "#F39B7FFF",
-        "#533377",
-        "#3C5488FF",
-        "#00a048",
-        "#815d34",
-        "grey30"
-    ),
-    breaks = c(
-        "Negative",
-        "Safety",
-        "Suspicious",
-        "Neutral",
-        "Success",
-        "Invalid",
-        "Unclassified"
-    )) +
+    scale_fill_manual(
+        name = "Reason implications",
+        values = c(
+            "#E64B35FF",
+            "#F39B7FFF",
+            "#533377",
+            "#3C5488FF",
+            "#00a048",
+            "#815d34",
+            "grey30"
+        ),
+        breaks = c(
+            "Negative",
+            "Safety",
+            "Suspicious",
+            "Neutral",
+            "Success",
+            "Invalid",
+            "Unclassified"
+        )
+    ) +
     theme_cowplot(font_size = 12) +
     facet_grid(~fake, scales = "free", space = "free") +
     theme(
@@ -272,15 +273,15 @@ legend_main <- get_legend(p_predictions_tiles)
 legend_meta <- get_legend(p_meta_tiles)
 p_supertile <- plot_grid(
     p_meta_tiles +
-    theme(
-        legend.position = "none",
-        plot.margin = margin(l = 30, t = 5, r = 0, unit = "pt")
-    ),
+        theme(
+            legend.position = "none",
+            plot.margin = margin(l = 30, t = 5, r = 0, unit = "pt")
+        ),
     p_predictions_tiles +
-    theme(
-        legend.position = "none",
-        axis.text.y = element_blank()
-    ),
+        theme(
+            legend.position = "none",
+            axis.text.y = element_blank()
+        ),
     plot_grid(legend_meta, legend_main, nrow = 2),
     # p_study_count,
     nrow = 1,
@@ -317,7 +318,6 @@ p_predictions_by_phase <- data_to_plot %>%
             fill = fct_rev(prediction)
         )
     ) +
-    # geom_area(alpha = 0.7, size = .25, color = "black") +
     geom_bar(
         stat = "identity",
         position = position_dodge2(),
@@ -326,15 +326,17 @@ p_predictions_by_phase <- data_to_plot %>%
     scale_y_continuous(
         name = "Stopped studies in phase (%)",
         labels = scales::percent,
-        expand = c(0, 0, 0, 0.01)
+        expand = c(0, 0, 0, 0.03)
     ) +
     scale_x_discrete(
         name = "Clinical Phase"
     ) +
-    scale_fill_manual(name = "Stop reason",
-    values = c("#E64B35FF", "#F39B7FFF", "#3C5488FF"),
-    breaks = c("Negative", "Safety_Sideeffects", "Study_Staff_Moved"),
-    labels = c("Negative", "Safety or side effects", "Study or staff moved")) +
+    scale_fill_manual(
+        name = "Stop reason",
+        values = c("#4DBBD5FF", "#3C5488FF", "#E64B35FF"),
+        breaks = c("Study_Staff_Moved", "Safety_Sideeffects", "Negative"),
+        labels = c("Study or staff moved", "Safety or side effects", "Negative")
+    ) +
     # scale_fill_viridis_d(name = "Stop reason") +
     theme_cowplot(font_size = 12) +
     theme(
@@ -351,22 +353,22 @@ p_predictions_by_phase
 
 ```{r, predictions_by_therapy_summary, cache = TRUE}
 byta_prepdata <- data_to_plot %>%
-        mutate(taTerm = replace_na(taTerm, "Other")) %>%
-        mutate(taTerm = str_replace_all(taTerm, " disease", "")) %>%
-        mutate(taTerm = str_replace_all(taTerm, " disorder", "")) %>%
-        mutate(taTerm = fct_infreq(taTerm)) %>%
-        mutate(taTerm = fct_other(taTerm,
-            keep = c(
-                "Oncology",
-                "Neurological",
-                "Cardiovascular",
-                "Infectious",
-                "Respiratory"
-            )
-        )) %>%
-        mutate(nicename = fct_other(nicename,
-            keep = c("Negative", "Safety or side effects", "COVID-19")
-        ))
+    mutate(taTerm = replace_na(taTerm, "Other")) %>%
+    mutate(taTerm = str_replace_all(taTerm, " disease", "")) %>%
+    mutate(taTerm = str_replace_all(taTerm, " disorder", "")) %>%
+    mutate(taTerm = fct_infreq(taTerm)) %>%
+    mutate(taTerm = fct_other(taTerm,
+        keep = c(
+            "Oncology",
+            "Neurological",
+            "Cardiovascular",
+            "Infectious",
+            "Respiratory"
+        )
+    )) %>%
+    mutate(nicename = fct_other(nicename,
+        keep = c("Negative", "Safety or side effects", "COVID-19")
+    ))
 
 
 byta_data2plot <- byta_prepdata %>%
@@ -383,16 +385,19 @@ byta_data2plot <- byta_prepdata %>%
         by = c("grouping")
     ) %>%
     mutate(ratio = groupingClassCount / groupingCount)
-    
+
 p_byta_highlights <- byta_data2plot %>%
     filter(nicename != "Other") %>%
     filter(nicename != "Negative") %>%
     ggplot(aes(x = grouping, y = ratio, fill = nicename)) +
     geom_bar(stat = "identity", position = "dodge", color = "black") +
-    scale_fill_manual(name = "Stop reason",
-    values = c("#E64B35FF", "#F39B7FFF", "#3C5488FF"),
-    breaks = c("Negative", "Safety or side effects", "COVID-19"),
-    labels = c("Negative", "Safety or side effects", "COVID-19")) +
+    scale_fill_manual(
+        name = "Stop reason",
+        values = c("#3C5488FF", "#00A087FF"),
+        # values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF", "#3C5488FF", "#F39B7FFF", "#8491B4FF", "#91D1C2FF", "#DC0000FF", "#7E6148FF"),
+        breaks = c("Safety or side effects", "COVID-19"),
+        labels = c("Safety or side effects", "COVID-19")
+    ) +
     scale_y_continuous(
         name = "Stopped studies in TA (%)",
         labels = scales::percent,
@@ -410,7 +415,6 @@ p_byta_highlights <- byta_data2plot %>%
         legend.margin = margin(l = 10, t = 10, unit = "pt")
     )
 p_byta_highlights
-
 ```
 ```{r, predictions_stopped_by_ta, cache = TRUE, fig.width = 9, fig.height = 8}
 
@@ -462,11 +466,11 @@ disease_ta <- spark_read_parquet(sc, disease_path) %>%
 
 stop_by_ta <- clinical %>%
     filter(!is.na(prediction)) %>%
-    select(diseaseId, nct_id, prediction) %>%
+    select(diseaseId, nctid, prediction) %>%
     distinct() %>%
     collect() %>%
     left_join(disease_ta, by = c("diseaseId" = "id")) %>%
-    select(diseaseId, nct_id, prediction, taTerm) %>%
+    select(diseaseId, nctid, prediction, taTerm) %>%
     group_by(taTerm, prediction) %>%
     summarise(count = n(), .groups = "drop") %>%
     complete(taTerm, prediction) %>%

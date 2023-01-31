@@ -16,9 +16,10 @@ p_safety_by_ta <- all_tests %>%
         linetype = "dashed"
     ) +
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-    width = 0) +
+        width = 0
+    ) +
     geom_point() +
-    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_y_log10(name = "Odds Ratio") +
     coord_flip() +
     facet_grid(. ~ prediction) +
     theme_cowplot(font_size = 12) +
@@ -31,22 +32,24 @@ p_safety_by_ta
 
 ```{r, safety_main, cache = TRUE}
 stars_pval <- function(p_value) {
-  unclass(
-    symnum(
-      p_value,
-      corr = FALSE,
-      na = FALSE,
-      cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05,  1),
-      symbols = c("****", "***", "**", "*",  "ns")
+    unclass(
+        symnum(
+            p_value,
+            corr = FALSE,
+            na = FALSE,
+            cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
+            symbols = c("****", "***", "**", "*", "ns")
+        )
     )
-  )
 }
 
 toplot_safety_main <- all_tests %>%
     filter(predictionType == "metareason") %>%
     filter(prediction == "Safety_Sideeffects") %>%
-    filter(comparisonType %in% c("ta",
-    "geneticConstrain", "rnaSpecificity", "lof_tolerance", "interactions")) %>%
+    filter(comparisonType %in% c(
+        "ta",
+        "geneticConstrain", "rnaSpecificity", "lof_tolerance", "interactions"
+    )) %>%
     mutate(comparison = fct_reorder(comparison, estimate)) %>%
     mutate(comparison = fct_relevel(
         comparison,
@@ -58,7 +61,8 @@ toplot_safety_main <- all_tests %>%
     mutate(comparison = fct_relevel(
         comparison,
         "greaterThan20",
-        after = Inf)) %>%
+        after = Inf
+    )) %>%
     mutate(comparison = fct_recode(comparison,
         "Very high" = "0",
         "High" = "1",
@@ -83,19 +87,23 @@ toplot_safety_main <- all_tests %>%
         "Interacting proteins" = "interactions",
         "RNA specificity" = "rnaSpecificity",
         "Indication" = "ta",
-        "Genetic Constrain (LOEUF bin)" = "geneticConstrain"
+        "Genetic Constraint (LOEUF bin)" = "geneticConstrain"
     )) %>%
     mutate(comparisonType = fct_rev(
-        fct_reorder(comparisonType, estimate, max, na.rm = TRUE))) %>%
+        fct_reorder(comparisonType, estimate, max, na.rm = TRUE)
+    )) %>%
     mutate(comparisonType = fct_relevel(
-        comparisonType, "Interacting proteins", after = Inf)) %>%
+        comparisonType, "Interacting proteins",
+        after = Inf
+    )) %>%
     mutate(oddsinterval = paste(round(estimate, digits = 3),
-    " (",
-    round(conf.low, digits = 2),
-    "-",
-    round(conf.high, digits = 2),
-    ")",
-    sep = "")) %>%
+        " (",
+        round(conf.low, digits = 2),
+        "-",
+        round(conf.high, digits = 2),
+        ")",
+        sep = ""
+    )) %>%
     mutate(significance = stars_pval(p.value))
 
 p_safety_main_dots <- toplot_safety_main %>%
@@ -105,11 +113,13 @@ p_safety_main_dots <- toplot_safety_main %>%
         linetype = "dashed"
     ) +
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-    width = 0, color = "steelblue", size = 1) +
+        width = 0, color = "steelblue", size = 1
+    ) +
     geom_point(color = "steelblue", size = 3) +
-    scale_y_log10(name = "Odds Ratio (log)", position = "right") +
-    scale_x_discrete(labels = function(x)
-    stringr::str_wrap(x, width = 25)) +
+    scale_y_log10(name = "Odds Ratio", position = "right") +
+    scale_x_discrete(labels = function(x) {
+        stringr::str_wrap(x, width = 25)
+    }) +
     coord_flip() +
     facet_grid(comparisonType ~ .,
         scale = "free_y",
@@ -131,17 +141,20 @@ p_safety_main_dots <- toplot_safety_main %>%
 
 p_safety_main_numbers <- toplot_safety_main %>%
     mutate(a = formatC(a, format = "d", big.mark = ",")) %>%
-    select(comparison,
-    comparisonType,
-    prediction,
-    a,
-    oddsinterval,
-    significance) %>%
+    select(
+        comparison,
+        comparisonType,
+        prediction,
+        a,
+        oddsinterval,
+        significance
+    ) %>%
     gather(key, value, -comparison, -comparisonType, -prediction) %>%
     mutate(key = fct_recode(key,
-    "n" = "a",
-    "OR (95% CI)" = "oddsinterval",
-    "Significance" = "significance")) %>%
+        "n" = "a",
+        "OR (95% CI)" = "oddsinterval",
+        "Significance" = "significance"
+    )) %>%
     ggplot(aes(x = comparison, y = key)) +
     # geom_tile(fill = NA, color = "black") +
     geom_tile(fill = NA) +
@@ -167,11 +180,13 @@ p_safety_main_numbers <- toplot_safety_main %>%
 
 p_safety_main <- plot_grid(
     p_safety_main_dots +
-    theme(plot.margin = margin(
-        t = 5.5, b = 5.5, l = 5.5, r = -4, unit = "pt")),
+        theme(plot.margin = margin(
+            t = 5.5, b = 5.5, l = 5.5, r = -4, unit = "pt"
+        )),
     p_safety_main_numbers +
-    theme(plot.margin = margin(
-        t = 5.5, b = 5.5, l = 0, r = 5.5, unit = "pt")),
+        theme(plot.margin = margin(
+            t = 5.5, b = 5.5, l = 0, r = 5.5, unit = "pt"
+        )),
     rel_widths = c(1, 0.65),
     align = "h",
     axis = "t",
@@ -179,7 +194,6 @@ p_safety_main <- plot_grid(
     ncol = 2
 )
 p_safety_main
-
 ```
 
 ### Safety by somatic T-D evidence
@@ -223,14 +237,16 @@ p_safety_by_cancer_datasource <- all_tests %>%
         linetype = "dashed"
     ) +
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-    width = 0) +
+        width = 0
+    ) +
     geom_point() +
-    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_y_log10(name = "Odds Ratio") +
     coord_flip() +
     facet_grid(
         predictionType ~ comparison,
         scales = "free_y",
-        space = "free_y") +
+        space = "free_y"
+    ) +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +
     theme(
@@ -242,7 +258,7 @@ p_safety_by_cancer_datasource <- all_tests %>%
 p_safety_by_cancer_datasource
 ```
 
-### Safety by target genetic constrain
+### Safety by target genetic constraint
 
 ```{r, safety_by_genetic_constrain, cache = TRUE}
 p_safety_by_genetic_constrain <- all_tests %>%
@@ -252,17 +268,19 @@ p_safety_by_genetic_constrain <- all_tests %>%
     ggplot(aes(
         x = comparison,
         y = estimate,
-        color = prediction)) +
+        color = prediction
+    )) +
     geom_hline(aes(yintercept = 1),
         size = .25,
         linetype = "dashed"
     ) +
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-    width = 0) +
+        width = 0
+    ) +
     geom_point() +
     scale_color_discrete(name = "Study stop reason") +
-    scale_y_log10(name = "Odds Ratio (log)") +
-    scale_x_discrete(name = "pLOEUF target genetic constrain bin (GnomAD)") +
+    scale_y_log10(name = "Odds Ratio") +
+    scale_x_discrete(name = "pLOEUF target genetic constraint bin (GnomAD)") +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +
     theme(
@@ -283,24 +301,28 @@ p_safety_rna_specificity <- all_tests %>%
     filter(predictionType == "metareason") %>%
     filter(prediction == "Safety_Sideeffects") %>%
     filter(comparisonType == "rnaSpecificity") %>%
-    mutate(comparison = fct_relevel(comparison,
-    "Low tissue specificity",
-    "Tissue enhanced",
-    "Group enriched",
-    "Tissue enriched")) %>%
+    mutate(comparison = fct_relevel(
+        comparison,
+        "Low tissue specificity",
+        "Tissue enhanced",
+        "Group enriched",
+        "Tissue enriched"
+    )) %>%
     ggplot(aes(
         x = comparison,
         y = estimate,
-        color = prediction)) +
+        color = prediction
+    )) +
     geom_hline(aes(yintercept = 1),
         size = .25,
         linetype = "dashed"
     ) +
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-    width = 0) +
+        width = 0
+    ) +
     geom_point() +
     scale_color_discrete(name = "Study stop reason") +
-    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_y_log10(name = "Odds Ratio") +
     scale_x_discrete(name = "RNA tissue specificity") +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +
