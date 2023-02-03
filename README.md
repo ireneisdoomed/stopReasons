@@ -8,45 +8,44 @@ This provides a structured representation of why a clinical trial has stopped ea
 1. Create environment and install dependencies.
 
 ```bash
-conda create -n stopReasons  python=3.7 -y -c conda-forge --file requirements.txt
-conda activate stopReasons
-export PYTHONPATH="$PYTHONPATH:$(pwd)"
+poetry env use 3.10.8
+poetry install
 ```
 
-2. Prepare input data.
-
-```python
-# from OT ChEMBL evidence
-evd = 'http://ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/etl/parquet/evidence/sourceId%3Dchembl/'
-
-studies = (
-    evd
-    .filter(F.col('studyStopReason').isNotNull())
-    .withColumn('urls', F.explode('urls'))
-    .filter(F.col('urls.niceName').contains('ClinicalTrials'))
-    .withColumn('nct_id', F.element_at(F.split(F.col('urls.url'), '%22'), -2))
-    .select('nct_id', F.col('studyStopReason').alias('why_stopped'))
-    .distinct()
-)
-
-studies.coalesce(1).write.csv('data/studies.tsv', sep='\t', header=True)
-
-# schema of the input data
-studies.printSchema()
->> root
-    |-- nct_id: string (nullable = true)
-    |-- why_stopped: string (nullable = true)
-```
-3. Categorize text.
+2. Bundle package.
 
 ```bash
-export MODEL=gs://ot-team/olesya/bert_trials
 
-python predict.py \
-    --input_file studies.tsv \
-    --model $MODEL \
-    --output_file trials_predictions.tsv
+VERSION_NO=0.1.0
+
+rm -rf ./dist
+poetry build
+cp ./stop_reasons/*.py ./dist
+gsutil cp ./dist/stopreasons-${VERSION_NO}-py3-none-any.whl gs://ot-team/irene/bert/initialisation/
+gsutil cp ./utils/initialise_cluster.sh gs://ot-team/irene/bert/initialisation/
 ```
 
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+3. Set up cluster.
+
+```bash
+gcloud dataproc clusters create il-stop-reasons \
+    --image-version=2.1 \
+    --project=open-targets-eu-dev \
+    --region=europe-west1 \
+    --master-machine-type=n1-highmem-64 \
+    --metadata="PACKAGE=gs://ot-team/irene/bert/initialisation/stopreasons-${VERSION_NO}-py3-none-any.whl" \
+    --initialization-actions=gs://ot-team/irene/bert/initialisation/initialise_cluster.sh \
+    --enable-component-gateway \
+    --single-node \
+    --max-idle=10m
+```
+
+4. Submit job.
+
+```bash
+gcloud dataproc jobs submit pyspark ./dist/train.py \
+    --cluster=il-stop-reasons \
+    --py-files=gs://ot-team/irene/bert/initialisation/stopreasons-${VERSION_NO}-py3-none-any.whl \
+    --project=open-targets-eu-dev  \
+    --region=europe-west1
+```

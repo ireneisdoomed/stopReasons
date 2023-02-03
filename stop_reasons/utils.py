@@ -1,11 +1,13 @@
 import shutil
+from typing import Tuple
 
+from datasets.dataset_dict import DatasetDict
+from datasets.arrow_dataset import Dataset
 import numpy as np
+from pathlib import Path
 from sklearn.metrics import f1_score, roc_auc_score, accuracy_score
 import torch
 from transformers import AutoTokenizer, EvalPrediction, TFAutoModelForSequenceClassification
-
-from pathlib import Path
 
 def export_labels_to_model(model_name: str, model) -> None:
     """
@@ -25,7 +27,7 @@ def export_labels_to_model(model_name: str, model) -> None:
 
 def save_model_from_hub(model_name: str) -> None:
     """
-    > We load the model and tokenizer from the HuggingFace hub, save them to the `models` directory, and then export
+    We load the model and tokenizer from the HuggingFace hub, save them to the `models` directory, and then export
     the labels of the model to the directory that contains all the assets.
     
     Args:
@@ -43,7 +45,7 @@ def save_model_from_hub(model_name: str) -> None:
 
 def copy_tokenizer_vocab_to_model(model_name):
     """
-    > We copy the tokenizer's vocabulary to the model's directory, so that we can use the model for
+    We copy the tokenizer's vocabulary to the model's directory, so that we can use the model for
     predictions.
 
     Args:
@@ -58,7 +60,7 @@ def copy_tokenizer_vocab_to_model(model_name):
 
 def prepare_model_from_hub(model_name: str, model_dir:str) -> None:
     """
-    > If the model directory doesn't exist, download the model from the HuggingFace Hub, and copy the tokenizer
+    If the model directory doesn't exist, download the model from the HuggingFace Hub, and copy the tokenizer
     vocab to the model directory so that the format can be digested by Spark NLP.
     
     Args:
@@ -103,8 +105,23 @@ def compute_metrics(p: EvalPrediction):
     labels=p.label_ids
   )
 
-def subset_split(dataset, split, n_samples):
-    return dataset[split].shuffle(seed=42).select(range(n_samples))
+def prepare_splits_for_training(dataset, subset_data):
+  """Splits and shuffles the dataset into train and test splits.
+
+  Args:
+      dataset (DatasetDict): The dataset to split. 
+      subset_data (bool, optional): Flag to use a subset of the data.
+
+  Returns:
+      Tuple[Dataset]: One dataset object per train, test split.
+  """
+  fraction = 0.1 if subset_data else 1
+  splits = [dataset["train"], dataset["test"]]
+
+  return [
+    split.shuffle(seed=42).select(range(int(len(split) * fraction)))
+    for split in splits
+  ]
 
 def convert_to_tf_dataset(dataset, data_collator, shuffle_flag, batch_size):
     return (
