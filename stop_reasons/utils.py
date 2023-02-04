@@ -75,10 +75,17 @@ def prepare_model_from_hub(model_name: str, model_dir:str) -> None:
         copy_tokenizer_vocab_to_model(model_name)
 
 def get_label_metadata(dataset):
-    labels = [label for label in dataset['train'].features.keys() if label not in ['text', 'label_descriptions']]
-    id2label = dict(enumerate(labels))
-    label2id = {label:idx for idx, label in enumerate(labels)}
-    return labels, id2label, label2id
+  """
+  It takes a dataset and returns a list of labels, a dictionary mapping label ids to labels, and a
+  dictionary mapping labels to label ids
+  
+  Args:
+    dataset: the dataset object
+  """
+  labels = [label for label in dataset['train'].features.keys() if label not in ['text', 'label_descriptions']]
+  id2label = dict(enumerate(labels))
+  label2id = {label:idx for idx, label in enumerate(labels)}
+  return labels, id2label, label2id
 
 def multi_label_metrics(predictions, labels, threshold=0.5):
   # first, apply sigmoid on predictions which are of shape (batch_size, num_labels)
@@ -124,12 +131,25 @@ def prepare_splits_for_training(dataset, subset_data):
   ]
 
 def convert_to_tf_dataset(dataset, data_collator, shuffle_flag, batch_size):
-    return (
-        dataset.to_tf_dataset(
-            columns=["attention_mask", "input_ids", "token_type_ids"],
-            label_cols=["labels"],
-            shuffle=shuffle_flag,
-            collate_fn=data_collator,
-            batch_size=batch_size
-        )
-    )
+  """
+  We convert the dataset to a tf.data.Dataset object, which is a TensorFlow object that can be used
+  to train a model
+  
+  Args:
+    dataset: The dataset to convert to a tf.data.Dataset.
+    data_collator: This is a function that takes in a list of tensors and returns a single tensor.
+    shuffle_flag: Whether to shuffle the dataset or not.
+    batch_size: The number of samples per batch.
+  
+  Returns:
+    A tf.data.Dataset object
+  """
+  return (
+      dataset.to_tf_dataset(
+          columns=["attention_mask", "input_ids", "token_type_ids"],
+          label_cols=["labels"],
+          shuffle=shuffle_flag,
+          collate_fn=data_collator,
+          batch_size=batch_size
+      )
+  )
