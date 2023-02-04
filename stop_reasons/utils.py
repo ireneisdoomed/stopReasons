@@ -115,7 +115,7 @@ def prepare_splits_for_training(dataset, subset_data):
   Returns:
       Tuple[Dataset]: One dataset object per train, test split.
   """
-  fraction = 0.1 if subset_data else 1
+  fraction = 0.05 if subset_data else 1
   splits = [dataset["train"], dataset["test"]]
 
   return [

@@ -1,13 +1,14 @@
 import logging
 
 from datasets import load_dataset
+from huggingface_hub import login
 import numpy as np
 import tensorflow as tf
-from transformers import AutoTokenizer, DefaultDataCollator, TFAutoModelForSequenceClassification, TFTrainer, TFTrainingArguments
+from transformers import AutoTokenizer, DefaultDataCollator, PushToHubCallback, TFAutoModelForSequenceClassification, TFTrainer, TFTrainingArguments
 
 from stop_reasons.utils import (compute_metrics, convert_to_tf_dataset, get_label_metadata, prepare_splits_for_training)
 
-def main(subset_data: bool, epochs: int, output_path: str) -> None:
+def main(subset_data: bool, epochs: int, output_path: str, env: str, push_to_hub, personal_token: str) -> None:
 
     logging.basicConfig(level=logging.INFO)
 
@@ -68,10 +69,18 @@ def main(subset_data: bool, epochs: int, output_path: str) -> None:
     )
 
     logging.info("Training model")
-    model.fit(tf_train_dataset, epochs=epochs, validation_data=tf_validation_dataset)
+    callback = None
+    if push_to_hub:
+        login(token=personal_token)
+        callback = PushToHubCallback(
+            output_dir=output_path, tokenizer=tokenizer, hub_model_id="opentargets/stop_reasons_multi_direct"
+        )
+    model.fit(tf_train_dataset, epochs=epochs, validation_data=tf_validation_dataset, callbacks=callback)
 
+    output_path = output_path if env == "local" else f"gs://ot-team/irene/bert/{output_path}"
     model.save_pretrained(output_path, saved_model=True, save_format="tf")
-    logging.info("Model saved. Exiting.")
+    tokenizer.save_pretrained(f"{output_path}_tokenizer")
+    logging.info("Model and tokenizer saved. Exiting.")
 
 def encode_text(dataset_split):
     """Tokenize texts and align labels with them."""
@@ -89,7 +98,10 @@ def encode_text(dataset_split):
 
 if __name__ == "__main__":
     main(
-        subset_data=False,
-        epochs=7,
-        output_path="gs://ot-team/irene/bert/stop_reasons_classificator_multi_label_tf"
+        subset_data=True,
+        epochs=1,
+        output_path="stop_reasons_classificator_multi_label_test",
+        env="local",
+        push_to_hub=False,
+        personal_token="",
     )

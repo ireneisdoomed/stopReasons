@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 
 if __name__ == '__main__':
 
-    model = TFAutoModelForSequenceClassification.from_pretrained('./model_all_1_epochs_classificator_tf_multi_label', local_files_only=True, from_pt=False)
+    model = TFAutoModelForSequenceClassification.from_pretrained('../model_all_1_epochs_classificator_tf_multi_label', local_files_only=True, from_pt=False)
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
 
     repo_url = 'https://huggingface.co/opentargets/stop_reasons_classificator_multi_label'

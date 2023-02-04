@@ -32,7 +32,7 @@ gcloud dataproc clusters create il-stop-reasons \
     --image-version=2.1 \
     --project=open-targets-eu-dev \
     --region=europe-west1 \
-    --master-machine-type=n1-highmem-64 \
+    --master-machine-type=n1-highmem-32 \
     --metadata="PACKAGE=gs://ot-team/irene/bert/initialisation/stopreasons-${VERSION_NO}-py3-none-any.whl" \
     --initialization-actions=gs://ot-team/irene/bert/initialisation/initialise_cluster.sh \
     --enable-component-gateway \
