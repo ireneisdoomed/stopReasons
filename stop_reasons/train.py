@@ -1,14 +1,22 @@
 import logging
+from typing import Optional
 
 from datasets import load_dataset
 from huggingface_hub import login
 import numpy as np
 import tensorflow as tf
 from transformers import AutoTokenizer, DefaultDataCollator, PushToHubCallback, TFAutoModelForSequenceClassification
+import typer
 
 from stop_reasons.utils import (convert_to_tf_dataset, get_label_metadata, prepare_splits_for_training)
 
-def main(subset_data: bool, epochs: int, output_path: str, push_to_hub: bool, personal_token: str | None) -> None:
+def main(
+    epochs: int = typer.Argument(...),
+    output_path: str = typer.Argument(...),
+    subset_data: bool = typer.Option(False),
+    push_to_hub: bool = typer.Option(False),
+    personal_token: Optional[str] = typer.Argument(None),
+) -> None:
     """
     Main logic of the fine-tuning process: this function loads the dataset, tokenizes it,
     splits it into train and validation sets, loads the model, trains it, and saves it
@@ -80,10 +88,4 @@ def encode_text(dataset_split):
     return encoding
 
 if __name__ == "__main__":
-    main(
-        subset_data=False,
-        epochs=7,
-        output_path="stop_reasons_classificator_multi_label_test",
-        push_to_hub=False,
-        personal_token=None,
-    )
+    typer.run(main)
