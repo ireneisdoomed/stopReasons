@@ -1,5 +1,5 @@
 from datasets import load_dataset, DatasetDict, Dataset
-from evaluate import evaluator
+import evaluate
 from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 from typing import Union
 
@@ -25,21 +25,24 @@ def explode_label_columns(
 
     return ds
 
+def main():
+    # TO-DO: parametrise local model
+    dataset_agg = load_dataset("opentargets/clinical_trial_reason_to_stop", split="all")
+    model = TFAutoModelForSequenceClassification.from_pretrained("./model_3_epochs_classificator_tf", local_files_only=True)
 
-dataset_agg = load_dataset("opentargets/clinical_trial_reason_to_stop", split="all")
-model = TFAutoModelForSequenceClassification.from_pretrained("./model_3_epochs_classificator_tf", local_files_only=True)
+    dataset = explode_label_columns(dataset_agg, ["all"], model.config.label2id)
 
-dataset = explode_label_columns(dataset_agg, ["all"], model.config.label2id)
+    # Evaluate from a local model
+    tokenizer = AutoTokenizer.from_pretrained("./model_3_epochs_classificator_tf", local_files_only=True, from_pt=False)
+    task_evaluator = evaluate.evaluator("text-classification")
+    eval_results = task_evaluator.compute(
+        model_or_pipeline=model,
+        data=dataset["all"],
+        label_mapping=model.config.label2id,
+        tokenizer=tokenizer,
+    )
 
-# Evaluate from a local model
-tokenizer = AutoTokenizer.from_pretrained("./model_3_epochs_classificator_tf", local_files_only=True, from_pt=False)
-task_evaluator = evaluator("text-classification")
-eval_results = task_evaluator.compute(
-    model_or_pipeline=model,
-    data=dataset["all"],
-    label_mapping=model.config.label2id,
-    tokenizer=tokenizer,
-    metric="f1",
-)
+    print(eval_results)
 
-print(eval_results)
+if __name__ == '__main__':
+    main()

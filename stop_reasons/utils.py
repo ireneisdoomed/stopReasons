@@ -89,8 +89,8 @@ def get_label_metadata(dataset):
 
 def multi_label_metrics(predictions, labels, threshold=0.5):
   # first, apply sigmoid on predictions which are of shape (batch_size, num_labels)
-  sigmoid = torch.nn.Sigmoid()
-  probs = sigmoid(torch.Tensor(predictions))
+  sigmoid = tf.nn.Sigmoid()
+  probs = tf.nn.sigmoid(torch.Tensor(predictions))
   # next, use threshold to turn them into integer predictions
   y_pred = np.zeros(probs.shape)
   y_pred[np.where(probs >= threshold)] = 1
