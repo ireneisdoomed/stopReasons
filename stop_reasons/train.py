@@ -32,7 +32,7 @@ def main(
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Download dataset from HF's datasets...")
-    dataset = load_dataset("opentargets/clinical_trial_reason_to_stop", split='train').train_test_split(test_size=0.1)
+    dataset = load_dataset("opentargets/clinical_trial_reason_to_stop", split='train').train_test_split(test_size=0.1, seed=42)
     global labels
     labels, id2label, label2id = get_label_metadata(dataset)
 
