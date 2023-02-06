@@ -11,6 +11,21 @@ from stop_reasons.utils import get_label_metadata, prepare_splits_for_training
 
 class MultilabelTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
+        """
+        Custom loss function calculation using BCEWithLogitsLoss, it returns the loss and the outputs if the
+        return_outputs flag is set to True
+        This function is used during training, evaluation, and prediction; specifically every time a batch is processed.
+        The default loss function is here https://github.com/huggingface/transformers/blob/820c46a707ddd033975bc3b0549eea200e64c7da/src/transformers/trainer.py#L2561
+        
+        Args:
+          model: the model we're training
+          inputs: a dictionary of input tensors
+          return_outputs: if True, the loss and the model outputs are returned. If False, only the loss is
+        returned. Defaults to False
+        
+        Returns:
+          The loss and the outputs of the model.
+        """
         labels = inputs.pop("labels")
         # forward pass
         outputs = model(**inputs)
@@ -118,4 +133,4 @@ def main(
     return trainer
 
 if __name__ == '__main__':
-    main()
+    typer.run(main)
