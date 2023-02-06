@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stopreasons"
-version = "0.1.0"
+version = "0.2.0"
 description = "Module to fine tune a NLP model that assigns one or multiple classes of why a clinical trial has stopped early. The base architecture is a BERT model fine tuned on a dataset curated by the Open Targets team."
 authors = ["Irene López <irene.lopezs@protonmail.com>"]
 license = "Apache License 2.0"

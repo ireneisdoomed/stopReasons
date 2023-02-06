@@ -16,7 +16,7 @@ poetry install
 
 ```bash
 
-VERSION_NO=0.1.0
+VERSION_NO=0.2.0
 
 rm -rf ./dist
 poetry build

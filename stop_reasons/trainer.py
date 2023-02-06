@@ -84,7 +84,7 @@ def main():
         save_strategy="no",
         load_best_model_at_end=False,
         push_to_hub=True,
-        hub_model_id="stop_reasons_classificator_multilabel_pt_50n_1epochs",
+        hub_model_id="stop_reasons_classificator_multilabel_pt_500n_3epochs",
         hub_token="",
         hub_private_repo=False,
     )
@@ -104,6 +104,7 @@ def main():
     print(metrics)
     predictions = trainer.predict(test_dataset)
     print(predictions)
+    trainer.save_model("stop_reasons_classificator_multilabel_pt_500n_3epochs")
     trainer.push_to_hub()
 
 if __name__ == '__main__':
