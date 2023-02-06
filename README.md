@@ -5,7 +5,9 @@ This provides a structured representation of why a clinical trial has stopped ea
 
 ## Development
 
-1. Create environment and install dependencies.
+1. Create environment and install dependencies. You need to have Git LFS installed in your system.
+
+```bash
 
 ```bash
 poetry env use 3.10.8

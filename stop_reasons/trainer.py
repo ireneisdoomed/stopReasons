@@ -1,10 +1,13 @@
+import logging
+from typing import Optional
+
 from datasets import load_dataset
-import evaluate
 import numpy as np
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, DataCollatorWithPadding, TrainingArguments, Trainer
+import typer
 
-from stop_reasons.utils import get_label_metadata
+from stop_reasons.utils import get_label_metadata, prepare_splits_for_training
 
 class MultilabelTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
@@ -44,7 +47,16 @@ def tokenize(batch):
 def preprocess(batch):
     NotImplementedError
 
-def main():
+def main(
+    epochs: int = typer.Argument(...),
+    output_model_name: str = typer.Argument(...),
+    subset_data: bool = typer.Option(False),
+    push_to_hub: bool = typer.Option(False),
+    personal_token: Optional[str] = typer.Option(None),
+) -> Trainer:
+
+    logging.basicConfig(level=logging.INFO)
+
     dataset = load_dataset("opentargets/clinical_trial_reason_to_stop", split='train').train_test_split(test_size=0.1, seed=42)
     global labels
     labels, id2label, label2id = get_label_metadata(dataset)
@@ -53,6 +65,10 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
     dataset_cols = [col for col in dataset["train"].column_names if col not in ["text", "input_ids", "attention_mask", "labels"]]
     tokenized_dataset = dataset.map(tokenize, batched=True, remove_columns=dataset_cols)
+
+    train_dataset, test_dataset = prepare_splits_for_training(tokenized_dataset, subset_data)
+    logging.info(f"Train dataset length: {len(train_dataset)}")
+    logging.info(f"Test dataset length: {len(test_dataset)}")
 
     train_dataset = (
         tokenized_dataset["train"].shuffle(seed=42).select(range(500)).with_format("torch")
@@ -70,20 +86,20 @@ def main():
         label2id=label2id,
     )
     args = TrainingArguments(
-        output_dir="stop_reasons_classificator_multilabel_pt_500n_3epochs",
+        output_dir=output_model_name,
         evaluation_strategy="epoch",
         learning_rate=5e-5,
         per_device_train_batch_size=32,
         per_device_eval_batch_size=32,
         data_seed=42,
-        num_train_epochs=3,
+        num_train_epochs=epochs,
         metric_for_best_model="f1",
         save_total_limit=2,
         save_strategy="no",
         load_best_model_at_end=False,
-        push_to_hub=True,
-        hub_model_id="stop_reasons_classificator_multilabel_pt_500n_3epochs",
-        hub_token="",
+        push_to_hub=push_to_hub,
+        hub_model_id=output_model_name,
+        hub_token=personal_token,
         hub_private_repo=False,
     )
 
@@ -102,8 +118,11 @@ def main():
     print(metrics)
     predictions = trainer.predict(test_dataset)
     print(predictions)
-    trainer.save_model("stop_reasons_classificator_multilabel_pt_500n_3epochs")
-    trainer.push_to_hub()
+    trainer.save_model(output_model_name)
+    if push_to_hub:
+        trainer.push_to_hub()
+
+    return trainer
 
 if __name__ == '__main__':
     main()
