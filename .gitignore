@@ -5,3 +5,7 @@ env
 dist
 __pycache__
 .vscode
+temp/
+src/report_cache/
+Rplots.pdf
+docs/figures
