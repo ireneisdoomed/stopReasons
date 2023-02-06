@@ -3,6 +3,9 @@ Implementation of a NLP classifier based on [BERT](https://huggingface.co/bert-b
 
 This provides a structured representation of why a clinical trial has stopped early.
 
+## Usage
+TODO: add usage instructions explaining each script
+
 ## Development
 
 1. Create environment and install dependencies. You need to have Git LFS installed in your system.
