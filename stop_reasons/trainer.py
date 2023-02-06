@@ -62,8 +62,6 @@ def main():
     )
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
-    global metric
-    metric = evaluate.load("accuracy")
     model = AutoModelForSequenceClassification.from_pretrained(
         "bert-base-uncased",
         problem_type="multi_label_classification",
@@ -79,7 +77,7 @@ def main():
         per_device_eval_batch_size=32,
         data_seed=42,
         num_train_epochs=3,
-        metric_for_best_model="accuracy",
+        metric_for_best_model="f1",
         save_total_limit=2,
         save_strategy="no",
         load_best_model_at_end=False,
