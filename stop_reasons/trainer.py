@@ -69,13 +69,6 @@ def main(
     train_dataset, test_dataset = prepare_splits_for_training(tokenized_dataset, subset_data)
     logging.info(f"Train dataset length: {len(train_dataset)}")
     logging.info(f"Test dataset length: {len(test_dataset)}")
-
-    train_dataset = (
-        tokenized_dataset["train"].shuffle(seed=42).select(range(500)).with_format("torch")
-    )
-    test_dataset = (
-        tokenized_dataset["test"].shuffle(seed=42).select(range(50)).with_format("torch")
-    )
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     model = AutoModelForSequenceClassification.from_pretrained(
