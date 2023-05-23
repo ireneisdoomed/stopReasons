@@ -24,7 +24,7 @@ studies = (
     .filter(F.col('studyStopReason').isNotNull())
     .withColumn('urls', F.explode('urls'))
     .filter(F.col('urls.niceName').contains('ClinicalTrials'))
-    .withColumn('nct_id', F.element_at(F.split(F.col('urls.url'), '%22'), -2))
+    .withColumn('nct_id', F.element_at(F.split(F.col('urls.url'), '/'), -1))
     .select('nct_id', F.col('studyStopReason').alias('why_stopped'))
     .distinct()
 )
